@@ -10,7 +10,11 @@ package com.esp;
           super(n,f,m,b,ac,s,su,cl);
       }
       private static final RenderType ESP_LINES = create(
-          "esp_lines", DefaultVertexFormat.POSITION_COLOR_NORMAL, VertexFormat.Mode.LINES, 256,
+          "esp_lines",
+          DefaultVertexFormat.POSITION_COLOR_NORMAL,
+          VertexFormat.Mode.LINES,
+          256,
+          false, false,
           CompositeState.builder()
               .setShaderState(RENDERTYPE_LINES_SHADER)
               .setLineState(new LineStateShard(OptionalDouble.of(1.5)))
