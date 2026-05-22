@@ -1,171 +1,199 @@
 package com.esp;
 
-    import net.minecraft.client.Minecraft;
-    import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
-    import net.minecraft.world.effect.MobEffectInstance;
-    import net.minecraft.world.effect.MobEffects;
-    import net.minecraft.world.entity.EquipmentSlot;
-    import net.minecraft.world.entity.player.Inventory;
-    import net.minecraft.world.entity.player.Player;
-    import net.minecraft.world.item.ArmorItem;
-    import net.minecraft.world.item.ItemStack;
-    import net.minecraft.world.phys.Vec3;
-    import net.minecraftforge.api.distmarker.Dist;
-    import net.minecraftforge.event.TickEvent;
-    import net.minecraftforge.eventbus.api.SubscribeEvent;
-    import net.minecraftforge.fml.common.Mod;
-    import org.apache.logging.log4j.LogManager;
-    import org.apache.logging.log4j.Logger;
+  import net.minecraft.client.Minecraft;
+  import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+  import net.minecraft.world.effect.MobEffectInstance;
+  import net.minecraft.world.effect.MobEffects;
+  import net.minecraft.world.entity.EquipmentSlot;
+  import net.minecraft.world.entity.player.Inventory;
+  import net.minecraft.world.entity.player.Player;
+  import net.minecraft.world.item.ArmorItem;
+  import net.minecraft.world.item.ItemStack;
+  import net.minecraft.world.phys.Vec3;
+  import net.minecraftforge.api.distmarker.Dist;
+  import net.minecraftforge.event.TickEvent;
+  import net.minecraftforge.eventbus.api.SubscribeEvent;
+  import net.minecraftforge.fml.common.Mod;
+  import org.apache.logging.log4j.LogManager;
+  import org.apache.logging.log4j.Logger;
 
-    @Mod.EventBusSubscriber(modid = PlayersESP.MOD_ID, value = Dist.CLIENT)
-    public class EspKeyTickHandler {
-        private static final Logger LOG = LogManager.getLogger(PlayersESP.MOD_ID);
+  @Mod.EventBusSubscriber(modid = PlayersESP.MOD_ID, value = Dist.CLIENT)
+  public class EspKeyTickHandler {
+      private static final Logger LOG = LogManager.getLogger(PlayersESP.MOD_ID);
 
-        private static int     killAuraTick  = 0;
-        private static int     regDelay      = -1;
-        private static int     loginDelay    = -1;
-        private static boolean wasInWorld    = false;
-        private static boolean nvActive      = false;
-        private static int     autoArmorTick = 0;
-        private static int     afkIdleTick   = 0;
-        private static int     afkMoveTick   = 0;
+      private static int     killAuraTick  = 0;
+      private static int     regDelay      = -1;
+      private static int     loginDelay    = -1;
+      private static boolean wasInWorld    = false;
+      private static boolean nvActive      = false;
+      private static int     autoArmorTick = 0;
+      private static int     afkIdleTick   = 0;
+      private static int     afkMoveTick   = 0;
 
-        private static boolean configDirty  = false;
-        private static int     saveCooldown = 0;
+      // FIX: noSlowdown — максимальная скорость при использовании предмета (в блоках/тик)
+      private static final double NO_SLOWDOWN_MAX_SPEED = 0.26;
 
-        public static void markDirty() { configDirty = true; }
+      private static boolean configDirty  = false;
+      private static int     saveCooldown = 0;
 
-        @SubscribeEvent
-        public static void onTick(TickEvent.ClientTickEvent event) {
-            if (event.phase != TickEvent.Phase.END) return;
-            Minecraft mc = Minecraft.getInstance();
+      public static void markDirty() { configDirty = true; }
 
-            while (EspKeyHandler.KEY_TOGGLE.consumeClick())     { EspConfig.espEnabled    = !EspConfig.espEnabled;    markDirty(); }
-            while (EspKeyHandler.KEY_GUI.consumeClick())        { if (mc.screen == null && mc.level != null) mc.setScreen(new EspScreen()); }
-            while (EspKeyHandler.KEY_ORE.consumeClick())        { EspConfig.oreEsp        = !EspConfig.oreEsp;        markDirty(); }
-            while (EspKeyHandler.KEY_NOFALL.consumeClick())     { EspConfig.noFall        = !EspConfig.noFall;        markDirty(); LOG.info("[ESP] АнтиУрон: {}", EspConfig.noFall?"ВКЛ":"ВЫКЛ"); }
-            while (EspKeyHandler.KEY_KILLAURA.consumeClick())   { EspConfig.killAura      = !EspConfig.killAura;      markDirty(); }
-            while (EspKeyHandler.KEY_SPRINT.consumeClick())     { EspConfig.alwaysSprint  = !EspConfig.alwaysSprint;  markDirty(); }
-            while (EspKeyHandler.KEY_NIGHTVISION.consumeClick()){ EspConfig.nightVision   = !EspConfig.nightVision;   markDirty(); }
-            while (EspKeyHandler.KEY_MININGBOT.consumeClick())  { EspConfig.miningBot     = !EspConfig.miningBot;     markDirty(); LOG.info("[ESP] МайнингБот: {}", EspConfig.miningBot?"ВКЛ":"ВЫКЛ"); }
+      @SubscribeEvent
+      public static void onTick(TickEvent.ClientTickEvent event) {
+          if (event.phase != TickEvent.Phase.END) return;
+          Minecraft mc = Minecraft.getInstance();
 
-            if (saveCooldown > 0) saveCooldown--;
-            if (configDirty && saveCooldown == 0) { EspConfig.save(); configDirty = false; saveCooldown = 200; }
+          while (EspKeyHandler.KEY_TOGGLE.consumeClick())      { EspConfig.espEnabled   = !EspConfig.espEnabled;   markDirty(); }
+          while (EspKeyHandler.KEY_GUI.consumeClick())         { if (mc.screen == null && mc.level != null) mc.setScreen(new EspScreen()); }
+          while (EspKeyHandler.KEY_ORE.consumeClick())         { EspConfig.oreEsp       = !EspConfig.oreEsp;       markDirty(); }
+          while (EspKeyHandler.KEY_NOFALL.consumeClick())      { EspConfig.noFall       = !EspConfig.noFall;       markDirty(); LOG.info("[ESP] АнтиУрон: {}", EspConfig.noFall ? "ВКЛ" : "ВЫКЛ"); }
+          while (EspKeyHandler.KEY_KILLAURA.consumeClick())    { EspConfig.killAura     = !EspConfig.killAura;     markDirty(); }
+          while (EspKeyHandler.KEY_SPRINT.consumeClick())      { EspConfig.alwaysSprint = !EspConfig.alwaysSprint; markDirty(); }
+          while (EspKeyHandler.KEY_NIGHTVISION.consumeClick()) { EspConfig.nightVision  = !EspConfig.nightVision;  markDirty(); }
+          while (EspKeyHandler.KEY_MININGBOT.consumeClick())   { EspConfig.miningBot    = !EspConfig.miningBot;    markDirty(); LOG.info("[ESP] МайнингБот: {}", EspConfig.miningBot ? "ВКЛ" : "ВЫКЛ"); }
 
-            if (mc.level == null || mc.player == null) {
-                wasInWorld = false;
-                if (nvActive) nvActive = false;
-                afkIdleTick = 0; afkMoveTick = 0;
-                return;
-            }
+          // Отложенное сохранение конфига (не чаще 1 раза в 10 сек)
+          if (saveCooldown > 0) saveCooldown--;
+          if (configDirty && saveCooldown == 0) { EspConfig.save(); configDirty = false; saveCooldown = 200; }
 
-            if (!wasInWorld) {
-                wasInWorld = true;
-                SmartAutoAuth.reset();
-                if (!EspConfig.smartAuth && EspConfig.autoAuth && !EspConfig.authPassword.isEmpty()) {
-                    regDelay   = EspConfig.autoReg   ? 80  : -1;
-                    loginDelay = EspConfig.autoLogin  ? 100 : -1;
-                }
-            }
+          if (mc.level == null || mc.player == null) {
+              wasInWorld = false;
+              if (nvActive) nvActive = false;
+              afkIdleTick = 0;
+              afkMoveTick = 0;
+              return;
+          }
 
-            if (EspConfig.smartAuth) SmartAutoAuth.tick();
+          // Первый тик в мире — инициализация авто-аутентификации
+          if (!wasInWorld) {
+              wasInWorld = true;
+              SmartAutoAuth.reset();
+              if (!EspConfig.smartAuth && EspConfig.autoAuth && !EspConfig.authPassword.isEmpty()) {
+                  regDelay   = EspConfig.autoReg   ? 80  : -1;
+                  loginDelay = EspConfig.autoLogin  ? 100 : -1;
+              }
+          }
 
-            if (!EspConfig.smartAuth) {
-                if (regDelay   > 0 && --regDelay   == 0) mc.player.connection.sendCommand("reg "   + EspConfig.authPassword + " " + EspConfig.authPassword);
-                if (loginDelay > 0 && --loginDelay  == 0) mc.player.connection.sendCommand("login " + EspConfig.authPassword);
-            }
+          if (EspConfig.smartAuth) SmartAutoAuth.tick();
 
-            if (EspConfig.noFall && mc.player.isAlive()) {
-                mc.player.fallDistance = 0f;
-                if (!mc.player.onGround() && mc.player.getDeltaMovement().y < 0)
-                    mc.player.connection.send(new ServerboundMovePlayerPacket.StatusOnly(true));
-            }
+          // Авто-аутентификация по таймеру
+          if (!EspConfig.smartAuth) {
+              if (regDelay   > 0 && --regDelay   == 0) mc.player.connection.sendCommand("reg "   + EspConfig.authPassword + " " + EspConfig.authPassword);
+              if (loginDelay > 0 && --loginDelay  == 0) mc.player.connection.sendCommand("login " + EspConfig.authPassword);
+          }
 
-            if (EspConfig.alwaysSprint && mc.player.isAlive() && !mc.player.isSprinting()
-                    && mc.player.getFoodData().getFoodLevel() > 6
-                    && mc.player.getDeltaMovement().horizontalDistanceSqr() > 0.001)
-                mc.player.setSprinting(true);
+          // АнтиУрон от падения
+          if (EspConfig.noFall && mc.player.isAlive()) {
+              mc.player.fallDistance = 0f;
+              if (!mc.player.onGround() && mc.player.getDeltaMovement().y < 0)
+                  mc.player.connection.send(new ServerboundMovePlayerPacket.StatusOnly(true));
+          }
 
-            if (EspConfig.nightVision) {
-                MobEffectInstance cur = mc.player.getEffect(MobEffects.NIGHT_VISION);
-                if (cur == null || cur.getDuration() < 300)
-                    mc.player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 600, 0, false, false));
-                nvActive = true;
-            } else if (nvActive) { mc.player.removeEffect(MobEffects.NIGHT_VISION); nvActive = false; }
+          // Всегда спринт
+          if (EspConfig.alwaysSprint && mc.player.isAlive()
+                  && !mc.player.isSprinting()
+                  && mc.player.getFoodData().getFoodLevel() > 6
+                  && mc.player.getDeltaMovement().horizontalDistanceSqr() > 0.001)
+              mc.player.setSprinting(true);
 
-            if (EspConfig.noSlowdown && mc.player.isAlive() && mc.player.isUsingItem()) {
-                Vec3 vel = mc.player.getDeltaMovement();
-                if (vel.horizontalDistanceSqr() > 0.00001)
-                    mc.player.setDeltaMovement(vel.x * 1.5, vel.y, vel.z * 1.5);
-            }
+          // Ночное зрение
+          if (EspConfig.nightVision) {
+              MobEffectInstance cur = mc.player.getEffect(MobEffects.NIGHT_VISION);
+              if (cur == null || cur.getDuration() < 300)
+                  mc.player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 600, 0, false, false));
+              nvActive = true;
+          } else if (nvActive) {
+              mc.player.removeEffect(MobEffects.NIGHT_VISION);
+              nvActive = false;
+          }
 
-            if (EspConfig.antiKnockback && mc.player.isAlive() && mc.player.hurtTime > 0) {
-                Vec3 vel = mc.player.getDeltaMovement();
-                float s = EspConfig.antiKbStrength;
-                mc.player.setDeltaMovement(vel.x * (1.0 - s), vel.y, vel.z * (1.0 - s));
-            }
+          // FIX: Без замедления — капаем скорость вместо умножения каждый тик
+          // Оригинальный баг: vel * 1.5 каждый тик → экспоненциальный разгон → краш/кик
+          if (EspConfig.noSlowdown && mc.player.isAlive() && mc.player.isUsingItem()) {
+              Vec3 vel = mc.player.getDeltaMovement();
+              double horzSq = vel.horizontalDistanceSqr();
+              if (horzSq > 0.0001) {
+                  double current = Math.sqrt(horzSq);
+                  if (current < NO_SLOWDOWN_MAX_SPEED) {
+                      // Плавно разгоняем только если ниже лимита
+                      double scale = Math.min(NO_SLOWDOWN_MAX_SPEED / current, 1.3);
+                      mc.player.setDeltaMovement(vel.x * scale, vel.y, vel.z * scale);
+                  }
+              }
+          }
 
-            // ФИКС: mc.options.sneakKey не существует в 1.21 → используем mc.player.isShiftKeyDown()
-            boolean isMoving = mc.player.getDeltaMovement().horizontalDistanceSqr() > 0.0002
-                || mc.options.keyUp.isDown() || mc.options.keyDown.isDown()
-                || mc.options.keyLeft.isDown() || mc.options.keyRight.isDown()
-                || mc.player.isShiftKeyDown();
-            if (isMoving) { afkIdleTick = 0; afkMoveTick = 0; } else afkIdleTick++;
-            if (EspConfig.antiAfk && afkIdleTick >= EspConfig.antiAfkDelay) {
-                afkMoveTick++;
-                double micro = (afkMoveTick % 20 < 10) ? 0.013 : -0.013;
-                mc.player.setDeltaMovement(micro, mc.player.getDeltaMovement().y, 0);
-            }
+          // Анти-отброс
+          if (EspConfig.antiKnockback && mc.player.isAlive() && mc.player.hurtTime > 0) {
+              Vec3 vel = mc.player.getDeltaMovement();
+              float s = EspConfig.antiKbStrength;
+              mc.player.setDeltaMovement(vel.x * (1.0 - s), vel.y, vel.z * (1.0 - s));
+          }
 
-            if (EspConfig.autoArmor && ++autoArmorTick >= 20) {
-                autoArmorTick = 0;
-                autoEquipBestArmor(mc);
-            }
+          // Анти-AFK
+          boolean isMoving = mc.player.getDeltaMovement().horizontalDistanceSqr() > 0.0002
+              || mc.options.keyUp.isDown()    || mc.options.keyDown.isDown()
+              || mc.options.keyLeft.isDown()  || mc.options.keyRight.isDown()
+              || mc.player.isShiftKeyDown();
+          if (isMoving) { afkIdleTick = 0; afkMoveTick = 0; } else afkIdleTick++;
+          if (EspConfig.antiAfk && afkIdleTick >= EspConfig.antiAfkDelay) {
+              afkMoveTick++;
+              double micro = (afkMoveTick % 20 < 10) ? 0.013 : -0.013;
+              mc.player.setDeltaMovement(micro, mc.player.getDeltaMovement().y, 0);
+          }
 
-            if (EspConfig.killAura && mc.player.isAlive()) {
-                if (++killAuraTick >= 4) {
-                    killAuraTick = 0;
-                    float cooldown = mc.player.getAttackStrengthScale(0.5f);
-                    if (!EspConfig.hitDelay || cooldown >= 0.9f) {
-                        Player target  = null;
-                        double minDist = EspConfig.killAuraRange;
-                        try {
-                            for (Player p : java.util.List.copyOf(mc.level.players())) {
-                                if (p == mc.player || !p.isAlive()) continue;
-                                double d = mc.player.distanceTo(p);
-                                if (d > EspConfig.killAuraRange || d >= minDist) continue;
-                                minDist = d; target = p;
-                            }
-                        } catch (Exception ignored) {}
-                        if (target != null) mc.gameMode.attack(mc.player, target);
-                    }
-                }
-            }
-        }
+          // Авто-броня
+          if (EspConfig.autoArmor && ++autoArmorTick >= 20) {
+              autoArmorTick = 0;
+              autoEquipBestArmor(mc);
+          }
 
-        private static void autoEquipBestArmor(Minecraft mc) {
-            EquipmentSlot[] slots = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
-            Inventory inv = mc.player.getInventory();
-            for (EquipmentSlot slot : slots) {
-                ItemStack current    = mc.player.getItemBySlot(slot);
-                int       currentProt = armorProt(current, slot);
-                for (int i = 0; i < 36; i++) {
-                    ItemStack stack = inv.getItem(i);
-                    if (!(stack.getItem() instanceof ArmorItem ai) || ai.getEquipmentSlot() != slot) continue;
-                    int stackProt = armorProt(stack, slot);
-                    if (stackProt > currentProt) {
-                        inv.setItem(i, current);
-                        mc.player.setItemSlot(slot, stack);
-                        current = stack; currentProt = stackProt;
-                    }
-                }
-            }
-        }
+          // КиллАура
+          if (EspConfig.killAura && mc.player.isAlive()) {
+              if (++killAuraTick >= 4) {
+                  killAuraTick = 0;
+                  float cooldown = mc.player.getAttackStrengthScale(0.5f);
+                  if (!EspConfig.hitDelay || cooldown >= 0.9f) {
+                      Player target  = null;
+                      double minDist = EspConfig.killAuraRange;
+                      try {
+                          for (Player p : java.util.List.copyOf(mc.level.players())) {
+                              if (p == mc.player || !p.isAlive()) continue;
+                              double d = mc.player.distanceTo(p);
+                              if (d >= minDist) continue;
+                              minDist = d;
+                              target = p;
+                          }
+                      } catch (Exception ignored) {}
+                      if (target != null) mc.gameMode.attack(mc.player, target);
+                  }
+              }
+          }
+      }
 
-        private static int armorProt(ItemStack s, EquipmentSlot slot) {
-            if (s.isEmpty() || !(s.getItem() instanceof ArmorItem ai)) return -1;
-            if (ai.getEquipmentSlot() != slot) return -1;
-            return ai.getDefense();
-        }
-    }
+      private static void autoEquipBestArmor(Minecraft mc) {
+          EquipmentSlot[] slots = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
+          Inventory inv = mc.player.getInventory();
+          for (EquipmentSlot slot : slots) {
+              ItemStack current     = mc.player.getItemBySlot(slot);
+              int       currentProt = armorProt(current, slot);
+              for (int i = 0; i < 36; i++) {
+                  ItemStack stack = inv.getItem(i);
+                  if (!(stack.getItem() instanceof ArmorItem ai) || ai.getEquipmentSlot() != slot) continue;
+                  int stackProt = armorProt(stack, slot);
+                  if (stackProt > currentProt) {
+                      inv.setItem(i, current);
+                      mc.player.setItemSlot(slot, stack);
+                      current     = stack;
+                      currentProt = stackProt;
+                  }
+              }
+          }
+      }
+
+      private static int armorProt(ItemStack s, EquipmentSlot slot) {
+          if (s.isEmpty() || !(s.getItem() instanceof ArmorItem ai)) return -1;
+          if (ai.getEquipmentSlot() != slot) return -1;
+          return ai.getDefense();
+      }
+  }
   
