@@ -4,7 +4,10 @@ package com.esp;
   import com.mojang.blaze3d.vertex.PoseStack;
   import com.mojang.blaze3d.vertex.VertexConsumer;
   import net.minecraft.client.Minecraft;
+  import net.minecraft.client.gui.Font;
   import net.minecraft.client.renderer.LevelRenderer;
+  import net.minecraft.client.renderer.LightTexture;
+  import net.minecraft.client.renderer.MultiBufferSource;
   import net.minecraft.client.renderer.RenderType;
   import net.minecraft.util.Mth;
   import net.minecraft.world.entity.player.Player;
@@ -32,36 +35,35 @@ package com.esp;
           Minecraft mc = Minecraft.getInstance();
           if (mc.level == null || mc.player == null) return;
 
-          Vec3 camPos = event.getCamera().getPosition();
-          float pt = event.getPartialTick();
+          Vec3 camPos  = event.getCamera().getPosition();
+          float pt     = event.getPartialTick();
 
-          // Forge 52.x: getPoseStack() возвращает org.joml.Matrix4f (матрица вида камеры)
+          // Forge 52.x: getPoseStack() возвращает org.joml.Matrix4f (матрица вида)
           Matrix4f cameraMatrix = event.getPoseStack();
           PoseStack poseStack = new PoseStack();
           poseStack.last().pose().set(cameraMatrix);
           poseStack.translate(-camPos.x, -camPos.y, -camPos.z);
 
-          var bufferSource = mc.renderBuffers().bufferSource();
+          MultiBufferSource.BufferSource bufferSource = mc.renderBuffers().bufferSource();
 
-          // Отключаем тест глубины — боксы видны сквозь любые блоки
+          // Рендерим сквозь стены
           RenderSystem.disableDepthTest();
 
-          VertexConsumer consumer = bufferSource.getBuffer(RenderType.lines());
-
           List<? extends Player> players = mc.level.players();
+
+          // ── Проход 1: боксы и полоска HP ──────────────────────────────────────
+          VertexConsumer consumer = bufferSource.getBuffer(RenderType.lines());
           for (Player player : players) {
               if (player == mc.player) continue;
               if (player.distanceTo(mc.player) > RANGE) continue;
 
-              // Интерполяция позиции по partial tick — бокс точно следует за моделью
               double px = Mth.lerp(pt, player.xo, player.getX());
               double py = Mth.lerp(pt, player.yo, player.getY());
               double pz = Mth.lerp(pt, player.zo, player.getZ());
-
               double hw = player.getBbWidth() / 2.0 + 0.05;
               double h  = player.getBbHeight() + 0.05;
-              AABB box  = new AABB(px - hw, py - 0.05, pz - hw, px + hw, py + h, pz + hw);
 
+              AABB box = new AABB(px - hw, py - 0.05, pz - hw, px + hw, py + h, pz + hw);
               LevelRenderer.renderLineBox(poseStack, consumer, box, RED, GREEN, BLUE, ALPHA);
 
               float hp = player.getHealth() / player.getMaxHealth();
@@ -71,10 +73,42 @@ package com.esp;
               );
               LevelRenderer.renderLineBox(poseStack, consumer, hpBar, 1.0f - hp, hp, 0.0f, 1.0f);
           }
-
           bufferSource.endBatch(RenderType.lines());
 
-          // Восстанавливаем тест глубины
+          // ── Проход 2: ники над боксами (billboard) ────────────────────────────
+          for (Player player : players) {
+              if (player == mc.player) continue;
+              if (player.distanceTo(mc.player) > RANGE) continue;
+
+              double px = Mth.lerp(pt, player.xo, player.getX());
+              double py = Mth.lerp(pt, player.yo, player.getY());
+              double pz = Mth.lerp(pt, player.zo, player.getZ());
+              double h  = player.getBbHeight() + 0.05;
+
+              String name = player.getGameProfile().getName();
+
+              poseStack.pushPose();
+              // Позиция: над верхним краем бокса
+              poseStack.translate(px, py + h + 0.30, pz);
+              // Billboard: поворачиваем к камере, как делает ванильный NameTag
+              poseStack.mulPose(event.getCamera().rotation());
+              // Масштаб: стандартный для 3D-текста в мире
+              poseStack.scale(-0.025f, -0.025f, 0.025f);
+
+              float nameX = -mc.font.width(name) / 2.0f;
+              // SEE_THROUGH — текст виден сквозь блоки, FULL_BRIGHT — всегда светлый
+              mc.font.drawInBatch(
+                  name, nameX, 0, 0xFFFFFF,
+                  false, poseStack.last().pose(),
+                  bufferSource, Font.DisplayMode.SEE_THROUGH,
+                  0, LightTexture.FULL_BRIGHT
+              );
+
+              poseStack.popPose();
+          }
+          // Сбрасываем все текстовые буферы разом
+          bufferSource.endBatch();
+
           RenderSystem.enableDepthTest();
       }
   }
