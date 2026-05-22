@@ -10,7 +10,6 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.client.event.RenderLevelStageEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import org.joml.Matrix4f;
 
 import java.util.List;
 
@@ -32,12 +31,10 @@ public class EspRenderer {
 
         Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
 
-        // Forge 1.21.1: getPoseStack() returns Matrix4f (camera rotation matrix)
-        Matrix4f cameraMatrix = event.getPoseStack();
-
-        // Build a PoseStack from the camera matrix then translate to world origin
+        // Forge 1.21.1: create PoseStack, apply camera matrix, translate to world space
+        @SuppressWarnings("deprecation")
         PoseStack poseStack = new PoseStack();
-        poseStack.last().pose().set(cameraMatrix);
+        poseStack.last().pose().set(event.getPoseStack());
         poseStack.translate(-camPos.x, -camPos.y, -camPos.z);
 
         var bufferSource = mc.renderBuffers().bufferSource();
@@ -48,12 +45,9 @@ public class EspRenderer {
             if (player == mc.player) continue;
             if (player.distanceTo(mc.player) > RANGE) continue;
 
-            float r = RED, g = GREEN, b = BLUE;
-
             AABB box = player.getBoundingBox().inflate(0.05);
-            LevelRenderer.renderLineBox(poseStack, consumer, box, r, g, b, ALPHA);
+            LevelRenderer.renderLineBox(poseStack, consumer, box, RED, GREEN, BLUE, ALPHA);
 
-            // Health bar
             float hp = player.getHealth() / player.getMaxHealth();
             AABB hpBar = new AABB(
                 box.minX, box.maxY + 0.2, box.minZ,
