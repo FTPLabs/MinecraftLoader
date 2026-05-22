@@ -1,10 +1,16 @@
 package com.esp;
 
     import com.mojang.blaze3d.systems.RenderSystem;
+    import com.mojang.blaze3d.vertex.BufferUploader;
+    import com.mojang.blaze3d.vertex.DefaultVertexFormat;
     import com.mojang.blaze3d.vertex.PoseStack;
+    import com.mojang.blaze3d.vertex.Tesselator;
+    import com.mojang.blaze3d.vertex.VertexFormat;
     import com.mojang.blaze3d.vertex.VertexSorting;
     import net.minecraft.client.Minecraft;
-    import net.minecraft.client.gui.GuiGraphics;
+    import net.minecraft.client.gui.Font;
+    import net.minecraft.client.renderer.GameRenderer;
+    import net.minecraft.client.renderer.LightTexture;
     import net.minecraft.client.renderer.MultiBufferSource;
     import net.minecraft.network.chat.Component;
     import net.minecraft.world.effect.MobEffectCategory;
@@ -23,8 +29,8 @@ package com.esp;
 
     /**
      * Custom HUD overlay: Armor HUD, Potion HUD, Reach Display.
-     * Использует TickEvent.RenderTickEvent.END + ручную ortho-проекцию.
-     * Не требует GUI rendering событий (которые изменились в Forge 1.21.1-52.x).
+     * GuiGraphics конструктор приватный в MC 1.21.1 — используем
+     * mc.font.drawInBatch() + Tesselator напрямую через TickEvent.RenderTickEvent.END.
      */
     @Mod.EventBusSubscriber(modid = PlayersESP.MOD_ID, value = Dist.CLIENT)
     public class EspHudRenderer {
@@ -40,59 +46,78 @@ package com.esp;
             int sw = mc.getWindow().getGuiScaledWidth();
             int sh = mc.getWindow().getGuiScaledHeight();
 
-            // Устанавливаем 2D ортогональную проекцию для GUI-координат
-            Matrix4f orthoMatrix = new Matrix4f().setOrtho(0, sw, sh, 0, -1000f, 1000f);
-            RenderSystem.setProjectionMatrix(orthoMatrix, VertexSorting.ORTHOGRAPHIC_Z);
+            // 2D ортогональная проекция для GUI-координат
+            Matrix4f ortho = new Matrix4f().setOrtho(0, sw, sh, 0, -1000f, 1000f);
+            RenderSystem.setProjectionMatrix(ortho, VertexSorting.ORTHOGRAPHIC_Z);
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
 
+            PoseStack ps = new PoseStack();
             MultiBufferSource.BufferSource bufSource = mc.renderBuffers().bufferSource();
-            GuiGraphics g = new GuiGraphics(mc, new PoseStack(), bufSource);
 
-            int y = 4;
-            if (EspConfig.armorHud)     { y = renderArmorHud(g, mc, 4, y) + 6; }
-            if (EspConfig.potionHud)    { renderPotionHud(g, mc, sw - 4, 4); }
-            if (EspConfig.reachDisplay) { renderReachDisplay(g, mc, sw, sh); }
+            if (EspConfig.armorHud)     renderArmorHud(mc, ps, bufSource, 4, 4, sw);
+            if (EspConfig.potionHud)    renderPotionHud(mc, ps, bufSource, sw - 4, 4);
+            if (EspConfig.reachDisplay) renderReachDisplay(mc, ps, bufSource, sw, sh);
 
             bufSource.endBatch();
         }
 
-        // ── Armor HUD ────────────────────────────────────────────────────────
-        private static int renderArmorHud(GuiGraphics g, Minecraft mc, int x, int y) {
-            EquipmentSlot[] slots  = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
-            String[]        labels = { "Шлем  ", "Нагр  ", "Порт  ", "Бот   " };
-            int bgW = 110, rowH = 10, totalH = slots.length * (rowH + 4) + 4;
+        // ── Вспомогательные: рисование через Tesselator (без GuiGraphics) ─────
+        private static void fill(Matrix4f m, int x1, int y1, int x2, int y2, int color) {
+            float a = ((color >> 24) & 0xFF) / 255f;
+            float r = ((color >> 16) & 0xFF) / 255f;
+            float g = ((color >> 8)  & 0xFF) / 255f;
+            float b = (color         & 0xFF) / 255f;
+            if (a == 0) a = 1f;
+            RenderSystem.setShader(GameRenderer::getPositionColorShader);
+            var buf = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+            buf.addVertex(m, x1, y1, 0).setColor(r, g, b, a);
+            buf.addVertex(m, x1, y2, 0).setColor(r, g, b, a);
+            buf.addVertex(m, x2, y2, 0).setColor(r, g, b, a);
+            buf.addVertex(m, x2, y1, 0).setColor(r, g, b, a);
+            BufferUploader.drawWithShader(buf.buildOrThrow());
+        }
 
-            g.fill(x - 2, y - 2, x + bgW + 2, y + totalH, 0xAA050C1E);
-            g.fillGradient(x - 2, y - 2, x + bgW + 2, y - 1, 0xFF7C5CFC, 0xFF22D3EE);
+        private static void text(Minecraft mc, PoseStack ps, MultiBufferSource bufSource, String txt, int x, int y, int color) {
+            mc.font.drawInBatch(txt, x, y, color, false, ps.last().pose(), bufSource, Font.DisplayMode.SEE_THROUGH, 0, LightTexture.FULL_BRIGHT);
+        }
+
+        // ── Armor HUD ────────────────────────────────────────────────────────
+        private static void renderArmorHud(Minecraft mc, PoseStack ps, MultiBufferSource.BufferSource buf, int x, int y, int sw) {
+            EquipmentSlot[] slots  = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
+            String[]        labels = { "Шлем ", "Нагр ", "Порт ", "Бот  " };
+            int bgW = 112, rowH = 10, totalH = slots.length * (rowH + 4) + 4;
+            var m = ps.last().pose();
+
+            // Фон
+            fill(m, x - 2, y - 2, x + bgW, y + totalH, 0xAA050C1E);
+            fill(m, x - 2, y - 2, x + bgW, y - 1, 0xFF7C5CFC);
+            buf.endBatch(); // сбрасываем чтобы background отрисовался до текста
 
             for (int i = 0; i < slots.length; i++) {
                 ItemStack stack = mc.player.getItemBySlot(slots[i]);
                 int ry = y + 2 + i * (rowH + 4);
-                if (stack.isEmpty()) {
-                    g.drawString(mc.font, labels[i] + "—", x + 2, ry, 0xFF555555);
-                    continue;
-                }
+                if (stack.isEmpty()) { text(mc, ps, buf, labels[i] + "—", x + 2, ry, 0xFF555555); continue; }
                 int maxDur = stack.getMaxDamage();
                 int curDur = maxDur > 0 ? maxDur - stack.getDamageValue() : -1;
                 float pct  = maxDur > 0 ? (float) curDur / maxDur : 1f;
                 int col    = durColor(pct);
-                g.drawString(mc.font, labels[i] + (maxDur > 0 ? curDur + "/" + maxDur : "\u221e"), x + 2, ry, col);
+                text(mc, ps, buf, labels[i] + (maxDur > 0 ? curDur + "/" + maxDur : "\u221e"), x + 2, ry, col);
+                buf.endBatch();
+                // Durability bar
                 if (maxDur > 0) {
                     int bx = x + 2, by = ry + rowH;
-                    g.fill(bx, by, bx + bgW - 4, by + 2, 0xFF222222);
-                    g.fill(bx, by, bx + (int)(pct * (bgW - 4)), by + 2, col);
+                    fill(m, bx, by, bx + bgW - 6, by + 2, 0xFF1A1A2E);
+                    fill(m, bx, by, bx + (int)(pct * (bgW - 6)), by + 2, col);
                 }
             }
-            return y + totalH;
         }
 
         // ── Potion HUD ───────────────────────────────────────────────────────
-        private static void renderPotionHud(GuiGraphics g, Minecraft mc, int rightX, int startY) {
+        private static void renderPotionHud(Minecraft mc, PoseStack ps, MultiBufferSource.BufferSource buf, int rightX, int startY) {
             var effects = mc.player.getActiveEffects();
             if (effects.isEmpty()) return;
 
-            // MC 1.21: MobEffectInstance.getEffect() → Holder<MobEffect>, используем .value()
             List<MobEffectInstance> sorted = new ArrayList<>(effects);
             sorted.sort((a, b) -> {
                 boolean ab = a.getEffect().value().getCategory() == MobEffectCategory.BENEFICIAL;
@@ -101,8 +126,10 @@ package com.esp;
             });
 
             int bgW = 130, bgH = sorted.size() * 13 + 6, y = startY;
-            g.fill(rightX - bgW - 2, y - 2, rightX + 2, y + bgH, 0xAA050C1E);
-            g.fillGradient(rightX - bgW - 2, y - 2, rightX + 2, y - 1, 0xFF22D3EE, 0xFF7C5CFC);
+            var m = ps.last().pose();
+            fill(m, rightX - bgW - 2, y - 2, rightX + 2, y + bgH, 0xAA050C1E);
+            fill(m, rightX - bgW - 2, y - 2, rightX + 2, y - 1, 0xFF22D3EE);
+            buf.endBatch();
 
             for (MobEffectInstance eff : sorted) {
                 String name = Component.translatable(eff.getEffect().value().getDescriptionId()).getString();
@@ -110,15 +137,15 @@ package com.esp;
                 int amp = eff.getAmplifier() + 1;
                 int dur = eff.getDuration();
                 String time = dur > 72000 ? "\u221e" : String.format("%d:%02d", dur / 1200, (dur % 1200) / 20);
-                String text = (amp > 1 ? amp + "x " : "") + name + " " + time;
+                String txt = (amp > 1 ? amp + "x " : "") + name + " " + time;
                 boolean good = eff.getEffect().value().getCategory() == MobEffectCategory.BENEFICIAL;
-                g.drawString(mc.font, text, rightX - bgW + 2, y + 2, good ? 0xFF4ADE80 : 0xFFF87171);
+                text(mc, ps, buf, txt, rightX - bgW + 2, y + 2, good ? 0xFF4ADE80 : 0xFFF87171);
                 y += 13;
             }
         }
 
         // ── Reach Display ────────────────────────────────────────────────────
-        private static void renderReachDisplay(GuiGraphics g, Minecraft mc, int sw, int sh) {
+        private static void renderReachDisplay(Minecraft mc, PoseStack ps, MultiBufferSource.BufferSource buf, int sw, int sh) {
             Player nearest = null;
             double minDist = Double.MAX_VALUE;
             try {
@@ -131,8 +158,9 @@ package com.esp;
             if (nearest == null) return;
 
             int col = minDist <= 3.5 ? 0xFF4ADE80 : minDist <= 6 ? 0xFFFACC15 : 0xFFF87171;
-            String text = nearest.getGameProfile().getName() + " — " + String.format("%.1f", minDist) + " бл.";
-            g.drawCenteredString(mc.font, text, sw / 2, sh / 2 + 22, col);
+            String txt = nearest.getGameProfile().getName() + " \u2014 " + String.format("%.1f", minDist) + " \u0431\u043b.";
+            int tw = mc.font.width(txt);
+            text(mc, ps, buf, txt, sw / 2 - tw / 2, sh / 2 + 22, col);
         }
 
         private static int durColor(float pct) {
