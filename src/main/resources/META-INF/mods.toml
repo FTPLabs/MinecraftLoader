@@ -4,13 +4,13 @@ modLoader="javafml"
 
   [[mods]]
   modId="playersesp"
-  version="1.0.0"
+  version="1.1.0"
   displayName="Players ESP"
   authors="FTPDev | github.com/FTPLabs"
   description='''
-  Players ESP — 3D bounding boxes, health bars, and ore X-Ray for Minecraft 1.21.1.
-  Toggle ESP with [G], open menu with [H], toggle Ore ESP with [J].
-  Developer: FTPDev | github.com/FTPLabs
+  Players ESP — 3D боксы, HP-бары, сканер руд, АнтиУрон, КиллАура.
+  Горячие клавиши: [G] Вкл/Выкл  [H] Меню  [J] Руды  [N] Антиурон  [K] КиллАура
+  Разработчик: FTPDev | github.com/FTPLabs
   '''
 
   [[dependencies.playersesp]]

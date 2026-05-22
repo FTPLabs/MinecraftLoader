@@ -12,32 +12,38 @@ package com.esp;
       private static final Path   PATH = FMLPaths.CONFIGDIR.get().resolve("playersesp.json");
       private static final Gson   GSON = new GsonBuilder().setPrettyPrinting().create();
 
-      public static boolean espEnabled = true;
+      public static boolean espEnabled    = true;
       public static float   espR = 1f, espG = 0f, espB = 0f;
-      public static int     espRange  = 128;
-      public static boolean showNick  = true;
-      public static boolean showHp    = true;
-      public static boolean showArmor = true;
-      public static boolean oreEsp    = false;
-      public static int     oreRange  = 16;
+      public static int     espRange      = 128;
+      public static boolean showNick      = true;
+      public static boolean showHp        = true;
+      public static boolean showArmor     = true;
+      public static boolean oreEsp        = false;
+      public static int     oreRange      = 16;
+      public static boolean noFall        = false;
+      public static boolean killAura      = false;
+      public static float   killAuraRange = 4.0f;
 
       public static void load() {
           if (!Files.exists(PATH)) { save(); return; }
           try (Reader rdr = new FileReader(PATH.toFile())) {
               JsonObject o = GSON.fromJson(rdr, JsonObject.class);
               if (o == null) return;
-              espEnabled = bv(o, "espEnabled", espEnabled);
-              espR       = fv(o, "espR",       espR);
-              espG       = fv(o, "espG",       espG);
-              espB       = fv(o, "espB",       espB);
-              espRange   = iv(o, "espRange",   espRange);
-              showNick   = bv(o, "showNick",   showNick);
-              showHp     = bv(o, "showHp",     showHp);
-              showArmor  = bv(o, "showArmor",  showArmor);
-              oreEsp     = bv(o, "oreEsp",     oreEsp);
-              oreRange   = iv(o, "oreRange",   oreRange);
+              espEnabled    = bv(o, "espEnabled",    espEnabled);
+              espR          = fv(o, "espR",           espR);
+              espG          = fv(o, "espG",           espG);
+              espB          = fv(o, "espB",           espB);
+              espRange      = iv(o, "espRange",       espRange);
+              showNick      = bv(o, "showNick",       showNick);
+              showHp        = bv(o, "showHp",         showHp);
+              showArmor     = bv(o, "showArmor",      showArmor);
+              oreEsp        = bv(o, "oreEsp",         oreEsp);
+              oreRange      = iv(o, "oreRange",       oreRange);
+              noFall        = bv(o, "noFall",         noFall);
+              killAura      = bv(o, "killAura",       killAura);
+              killAuraRange = fv(o, "killAuraRange",  killAuraRange);
           } catch (Exception e) {
-              LOG.warn("[PlayerESP] Failed to load config, resetting: {}", e.getMessage());
+              LOG.warn("[PlayerESP] Не удалось загрузить конфиг, сброс: {}", e.getMessage());
               save();
           }
       }
@@ -46,19 +52,22 @@ package com.esp;
           try {
               Files.createDirectories(PATH.getParent());
               JsonObject o = new JsonObject();
-              o.addProperty("espEnabled", espEnabled);
-              o.addProperty("espR",       espR);
-              o.addProperty("espG",       espG);
-              o.addProperty("espB",       espB);
-              o.addProperty("espRange",   espRange);
-              o.addProperty("showNick",   showNick);
-              o.addProperty("showHp",     showHp);
-              o.addProperty("showArmor",  showArmor);
-              o.addProperty("oreEsp",     oreEsp);
-              o.addProperty("oreRange",   oreRange);
+              o.addProperty("espEnabled",    espEnabled);
+              o.addProperty("espR",          espR);
+              o.addProperty("espG",          espG);
+              o.addProperty("espB",          espB);
+              o.addProperty("espRange",      espRange);
+              o.addProperty("showNick",      showNick);
+              o.addProperty("showHp",        showHp);
+              o.addProperty("showArmor",     showArmor);
+              o.addProperty("oreEsp",        oreEsp);
+              o.addProperty("oreRange",      oreRange);
+              o.addProperty("noFall",        noFall);
+              o.addProperty("killAura",      killAura);
+              o.addProperty("killAuraRange", killAuraRange);
               try (Writer w = new FileWriter(PATH.toFile())) { GSON.toJson(o, w); }
           } catch (Exception e) {
-              LOG.error("[PlayerESP] Failed to save config: {}", e.getMessage());
+              LOG.error("[PlayerESP] Ошибка сохранения конфига: {}", e.getMessage());
           }
       }
 
