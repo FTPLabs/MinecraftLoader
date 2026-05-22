@@ -11,12 +11,14 @@ package com.esp;
 
       public static boolean espEnabled = true;
       public static float   espR = 1f, espG = 0f, espB = 0f;
-      public static int     espRange   = 64;
+      public static int     espRange   = 1000;
       public static boolean showNick   = true;
       public static boolean showHp     = true;
       public static boolean showArmor  = true;
       public static boolean oreEsp     = false;
-      public static int     oreRange   = 20;
+      public static int     oreRange   = 32;
+      public static boolean flyEnabled = false;
+      public static float   flySpeed   = 1.0f;
 
       public static void load() {
           if (!Files.exists(PATH)) { save(); return; }
@@ -26,6 +28,7 @@ package com.esp;
               espEnabled=bv(o,"espEnabled",espEnabled); espR=fv(o,"espR",espR); espG=fv(o,"espG",espG); espB=fv(o,"espB",espB);
               espRange=iv(o,"espRange",espRange); showNick=bv(o,"showNick",showNick); showHp=bv(o,"showHp",showHp);
               showArmor=bv(o,"showArmor",showArmor); oreEsp=bv(o,"oreEsp",oreEsp); oreRange=iv(o,"oreRange",oreRange);
+              flyEnabled=bv(o,"flyEnabled",flyEnabled); flySpeed=fv(o,"flySpeed",flySpeed);
           } catch (Exception e) { save(); }
       }
 
@@ -36,6 +39,7 @@ package com.esp;
               o.addProperty("espEnabled",espEnabled); o.addProperty("espR",espR); o.addProperty("espG",espG); o.addProperty("espB",espB);
               o.addProperty("espRange",espRange); o.addProperty("showNick",showNick); o.addProperty("showHp",showHp);
               o.addProperty("showArmor",showArmor); o.addProperty("oreEsp",oreEsp); o.addProperty("oreRange",oreRange);
+              o.addProperty("flyEnabled",flyEnabled); o.addProperty("flySpeed",flySpeed);
               try (Writer w = new FileWriter(PATH.toFile())) { GSON.toJson(o, w); }
           } catch (Exception ignored) {}
       }
