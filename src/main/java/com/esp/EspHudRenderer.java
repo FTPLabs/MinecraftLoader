@@ -43,7 +43,8 @@ package com.esp;
 
           Minecraft mc = Minecraft.getInstance();
           if (mc.level == null || mc.player == null || mc.screen != null) return;
-          if (!EspConfig.armorHud && !EspConfig.potionHud && !EspConfig.reachDisplay) return;
+          boolean anyHud = EspConfig.armorHud || EspConfig.potionHud || EspConfig.reachDisplay || EspConfig.statusHud;
+          if (!anyHud) return;
 
           int sw = mc.getWindow().getGuiScaledWidth();
           int sh = mc.getWindow().getGuiScaledHeight();
@@ -59,6 +60,7 @@ package com.esp;
           if (EspConfig.armorHud)     renderArmorHud(mc, ps, bufSource, 4, 4, sw);
           if (EspConfig.potionHud)    renderPotionHud(mc, ps, bufSource, sw - 4, 4);
           if (EspConfig.reachDisplay) renderReachDisplay(mc, ps, bufSource, sw, sh);
+          if (EspConfig.statusHud)    renderStatusHud(mc, ps, bufSource, sw, sh);
 
           bufSource.endBatch();
       }
@@ -174,7 +176,48 @@ package com.esp;
           if (nearest == null) return;
 
           int    col = minDist <= 3.5 ? 0xFF4ADE80 : minDist <= 6 ? 0xFFFACC15 : 0xFFF87171;
-          String txt = nearest.getGameProfile().getName() + " \u2014 " + String.format("%.1f", minDist) + " \u0431\u043b.";
+          String txt = nearest.getGameProfile().getName() + " \u2014 " + String.format("%.1f", minDist) + " \
+      // ── Status HUD — список активных модулей ──────────────────────────────────
+
+      private static void renderStatusHud(Minecraft mc, PoseStack ps,
+                                           MultiBufferSource.BufferSource buf, int sw, int sh) {
+          // Собираем только включённые модули
+          java.util.List<String> lines = new java.util.ArrayList<>();
+          if (EspConfig.espEnabled)    lines.add("\u00A7aESP");
+          if (EspConfig.tracer)        lines.add("\u00A7aТрейсеры");
+          if (EspConfig.oreEsp)        lines.add("\u00A7aОреESP");
+          if (EspConfig.miningBot)     lines.add("\u00A7eМайнБот [" + EspConfig.ORE_TYPE_NAMES[EspConfig.miningOreType] + "]");
+          if (EspConfig.killAura)      lines.add("\u00A7cКиллАура");
+          if (EspConfig.noFall)        lines.add("\u00A7aАнтиУрон");
+          if (EspConfig.alwaysSprint)  lines.add("\u00A7aСпринт");
+          if (EspConfig.nightVision)   lines.add("\u00A7aНочьВид");
+          if (EspConfig.noSlowdown)    lines.add("\u00A7aБезЗамедл.");
+          if (EspConfig.antiKnockback) lines.add("\u00A7aАнтиОтброс");
+          if (EspConfig.autoArmor)     lines.add("\u00A7aАвтоБроня");
+          if (EspConfig.autoReconnect) lines.add("\u00A7eАвтоРеконн.");
+          if (EspConfig.antiAfk)       lines.add("\u00A7eАнтиAFK");
+          if (EspConfig.arrowPredict)  lines.add("\u00A7aТраект.");
+
+          if (lines.isEmpty()) return;
+
+          int rowH  = 10;
+          int pad   = 3;
+          int bgW   = 80;
+          int bgH   = lines.size() * rowH + pad * 2;
+          int bx    = sw - bgW - 2;
+          int by    = sh - bgH - 2;
+          var m = ps.last().pose();
+
+          fill(m, bx - 1, by - 1, bx + bgW + 1, by + bgH + 1, 0xAA050C1E);
+          fill(m, bx - 1, by - 1, bx + bgW + 1, by,           0xFF7C5CFC);
+          buf.endBatch();
+
+          for (int i = 0; i < lines.size(); i++) {
+              text(mc, ps, buf, lines.get(i), bx + pad, by + pad + i * rowH, 0xFFFFFFFF);
+          }
+      }
+
+  u0431\u043b.";
           int    tw  = mc.font.width(txt);
           text(mc, ps, buf, txt, sw / 2 - tw / 2, sh / 2 + 22, col);
       }
