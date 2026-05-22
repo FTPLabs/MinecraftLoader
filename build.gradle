@@ -3,6 +3,7 @@ plugins {
     id 'idea'
     id 'maven-publish'
     id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'org.spongepowered.mixin' version '0.7.+'
 }
 
 version = '1.0.0'
@@ -14,8 +15,20 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 minecraft {
     mappings channel: 'official', version: '1.21.1'
 
+    copyIdeResources = true
+
     runs {
         client {
+            workingDirectory project.file('run')
+            property 'forge.logging.markers', 'REGISTRIES'
+            property 'forge.logging.console.level', 'debug'
+            mods {
+                playersesp {
+                    source sourceSets.main
+                }
+            }
+        }
+        server {
             workingDirectory project.file('run')
             property 'forge.logging.markers', 'REGISTRIES'
             property 'forge.logging.console.level', 'debug'
@@ -30,8 +43,37 @@ minecraft {
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
+repositories {
+    maven { url = 'https://maven.minecraftforge.net' }
+    mavenCentral()
+}
+
 dependencies {
     minecraft 'net.minecraftforge:forge:1.21.1-52.0.47'
 }
 
-jar.finalizedBy('reobfJar')
+jar {
+    manifest {
+        attributes([
+            'Specification-Title'   : 'playersesp',
+            'Specification-Vendor'  : 'esp',
+            'Specification-Version' : '1',
+            'Implementation-Title'  : project.name,
+            'Implementation-Version': project.jar.archiveVersion,
+            'Implementation-Vendor' : 'esp',
+        ])
+    }
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifact jar
+        }
+    }
+    repositories {
+        maven {
+            url "file://${project.projectDir}/mcmodsrepo"
+        }
+    }
+}
