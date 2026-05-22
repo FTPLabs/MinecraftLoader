@@ -1,0 +1,26 @@
+modLoader="javafml"
+loaderVersion="[52,)"
+license="MIT"
+
+[[mods]]
+modId="playersesp"
+version="1.0.0"
+displayName="Players ESP"
+description='''
+Players ESP — draws 3D bounding boxes and health bars around players.
+Toggle with G key in-game.
+'''
+
+[[dependencies.playersesp]]
+modId="forge"
+mandatory=true
+versionRange="[52,)"
+ordering="NONE"
+side="CLIENT"
+
+[[dependencies.playersesp]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.21.1,1.22)"
+ordering="NONE"
+side="CLIENT"
