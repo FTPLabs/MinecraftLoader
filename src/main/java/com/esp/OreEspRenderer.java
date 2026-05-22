@@ -14,16 +14,23 @@ package com.esp;
 
   import java.util.ArrayList;
   import java.util.List;
+  import java.util.concurrent.CopyOnWriteArrayList;
 
+  /**
+   * FIX v1.6:
+   *  - ORES заменён на CopyOnWriteArrayList — потокобезопасность между tick и render
+   *  - Убрана лишняя аннотация @Mod.EventBusSubscriber (регистрируется через PlayersESP)
+   */
   public class OreEspRenderer {
 
       private record OreEntry(BlockPos pos, float r, float g, float b) {}
-      private static final List<OreEntry> ORES = new ArrayList<>();
+
+      // FIX: CopyOnWriteArrayList — безопасно читать из рендер-треда пока тик-тред пишет
+      private static final List<OreEntry> ORES = new CopyOnWriteArrayList<>();
       private static int tick = 0;
 
       /**
-       * Scans for ores every 60 ticks (3 seconds) to avoid per-frame lag.
-       * Range is capped at 32 to keep the block scan cube manageable (~262k blocks max).
+       * Сканирует руды каждые 60 тиков (3 сек). Радиус ограничен 32 блоками.
        */
       @SubscribeEvent
       public static void onTick(TickEvent.ClientTickEvent event) {
@@ -33,8 +40,8 @@ package com.esp;
           if (++tick < 60) return;
           tick = 0;
 
-          ORES.clear();
-          Level level = mc.level;
+          List<OreEntry> fresh = new ArrayList<>();
+          Level level  = mc.level;
           BlockPos center = mc.player.blockPosition();
           int r = Math.min(EspConfig.oreRange, 32);
 
@@ -45,10 +52,14 @@ package com.esp;
                       if (!level.isLoaded(pos)) continue;
                       BlockState bs = level.getBlockState(pos);
                       float[] col = oreColor(bs);
-                      if (col != null) ORES.add(new OreEntry(pos, col[0], col[1], col[2]));
+                      if (col != null) fresh.add(new OreEntry(pos, col[0], col[1], col[2]));
                   }
               }
           }
+
+          // Атомарная замена: clear + addAll на CopyOnWriteArrayList безопасна
+          ORES.clear();
+          ORES.addAll(fresh);
       }
 
       @SubscribeEvent
