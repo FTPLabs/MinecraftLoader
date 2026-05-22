@@ -50,8 +50,11 @@ package com.esp;
             if (--reconnTimer == 0) {
                 ServerData srv = lastServer;
                 LOG.info("[PlayerESP] AutoReconnect: подключаемся к {}", srv.ip);
-                mc.execute(() -> ConnectScreen.startConnecting(
-                    mc.screen, mc, ServerAddress.parseString(srv.ip), srv, false));
+                mc.execute(() -> {
+                    ServerAddress addr = ServerAddress.parseString(srv.ip);
+                    // ФИКС: Forge 1.21.1 добавил параметр TransferState (null = обычное подключение)
+                    ConnectScreen.startConnecting(mc.screen, mc, addr, srv, false, null);
+                });
             }
         }
     }
