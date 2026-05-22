@@ -77,3 +77,22 @@ plugins {
       }
   }
   
+  // Временная задача для обнаружения Forge event классов
+  task listForgeEventClasses {
+      doLast {
+          def forgeClientEventPkg = 'net/minecraftforge/client/event'
+          configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+              def f = artifact.file
+              if (f.name.contains('forge') || f.name.contains('client')) {
+                  try {
+                      def jar = new java.util.jar.JarFile(f)
+                      jar.entries().findAll { it.name.startsWith(forgeClientEventPkg) && it.name.endsWith('.class') }.each {
+                          println "EVENT_CLASS: " + it.name.replace('/', '.').replace('.class', '')
+                      }
+                      jar.close()
+                  } catch (e) {}
+              }
+          }
+      }
+  }
+  
