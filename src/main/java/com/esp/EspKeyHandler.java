@@ -12,27 +12,24 @@ package com.esp;
   public class EspKeyHandler {
       /** [G] — ESP вкл/выкл */
       public static final KeyMapping KEY_TOGGLE = new KeyMapping(
-          "key.playersesp.toggle",   InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G,   "key.categories.playersesp");
+          "key.playersesp.toggle",   InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G,      "key.categories.playersesp");
 
-      /**
-       * [End] — Открыть меню.
-       * ID изменён с "key.playersesp.gui" на "key.playersesp.menu",
-       * чтобы Minecraft не подхватил старую запись HOME из options.txt.
-       */
+      /** [Delete] — Открыть меню.
+       *  ID: key.playersesp.open — свежий, не конфликтует с options.txt. */
       public static final KeyMapping KEY_GUI = new KeyMapping(
-          "key.playersesp.menu",     InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_END, "key.categories.playersesp");
+          "key.playersesp.open",     InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_DELETE, "key.categories.playersesp");
 
       /** [J] — Сканер руд */
       public static final KeyMapping KEY_ORE = new KeyMapping(
-          "key.playersesp.ore",      InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_J,   "key.categories.playersesp");
+          "key.playersesp.ore",      InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_J,      "key.categories.playersesp");
 
-      /** [N] — АнтиУрон */
+      /** [N] — АнтиУрон от падения */
       public static final KeyMapping KEY_NOFALL = new KeyMapping(
-          "key.playersesp.nofall",   InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N,   "key.categories.playersesp");
+          "key.playersesp.nofall",   InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N,      "key.categories.playersesp");
 
       /** [K] — КиллАура */
       public static final KeyMapping KEY_KILLAURA = new KeyMapping(
-          "key.playersesp.killaura", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K,   "key.categories.playersesp");
+          "key.playersesp.killaura", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K,      "key.categories.playersesp");
 
       @SubscribeEvent
       public static void onRegisterKeys(RegisterKeyMappingsEvent event) {
