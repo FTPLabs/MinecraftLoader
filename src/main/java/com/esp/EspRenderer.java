@@ -38,22 +38,17 @@ package com.esp;
           Vec3 camPos = event.getCamera().getPosition();
           float pt    = event.getPartialTick();
 
-          // Строим трансформ вручную, не используя event.getPoseStack()
-          // (в Forge 52.x он возвращает матрицу проекции, а не вида — это ломало рендер)
-          //
-          // Правильная цепочка:
-          //   1. mulPose(camera.rotation())  — поворот камеры (вид)
-          //   2. translate(-camPos)          — смещение в начало координат камеры
-          //
-          // Итог: вершина в мировых координатах v  →  camera.R * (v − camPos)
-          //        = корректные view-space координаты
+          // camera.rotation() = R_cam: ориентация камеры (camera→world).
+          // Матрица вида (view matrix) = R_cam.conjugate() (world→camera).
+          // Строим: viewRotation * T(-camPos) — стандартная view-матрица.
+          Quaternionf viewRot = new Quaternionf(event.getCamera().rotation()).conjugate();
+
           PoseStack poseStack = new PoseStack();
-          poseStack.mulPose(event.getCamera().rotation());
+          poseStack.mulPose(viewRot);
           poseStack.translate(-camPos.x, -camPos.y, -camPos.z);
 
           MultiBufferSource.BufferSource bufferSource = mc.renderBuffers().bufferSource();
 
-          // Рендерим сквозь стены
           RenderSystem.disableDepthTest();
 
           List<? extends Player> players = mc.level.players();
@@ -83,9 +78,9 @@ package com.esp;
           bufferSource.endBatch(RenderType.lines());
 
           // ── Проход 2: ники (billboard) ────────────────────────────────────────
-          // Billboard: применяем обратный кватернион камеры, чтобы текст
-          // всегда был ориентирован в плоскости экрана (XY screen-aligned).
-          Quaternionf billboardRot = new Quaternionf(event.getCamera().rotation()).conjugate();
+          // Billboard = R_cam (не conjugate!), т.к. base уже имеет R_cam.conj:
+          // R_cam.conj * T(pos) * R_cam * S * v → rotation part = Identity → текст фронтально
+          Quaternionf camRot = event.getCamera().rotation();
 
           for (Player player : players) {
               if (player == mc.player) continue;
@@ -100,7 +95,7 @@ package com.esp;
 
               poseStack.pushPose();
               poseStack.translate(px, py + h + 0.30, pz);
-              poseStack.mulPose(billboardRot);
+              poseStack.mulPose(camRot);
               poseStack.scale(-0.025f, -0.025f, 0.025f);
 
               float nameX = -mc.font.width(name) / 2.0f;
