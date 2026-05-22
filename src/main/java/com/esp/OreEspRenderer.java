@@ -11,7 +11,6 @@ package com.esp;
   import net.minecraftforge.client.event.RenderLevelStageEvent;
   import net.minecraftforge.event.TickEvent;
   import net.minecraftforge.eventbus.api.SubscribeEvent;
-  import org.joml.Matrix3f;
   import org.joml.Matrix4f;
 
   import java.util.ArrayList;
@@ -35,15 +34,12 @@ package com.esp;
           Level level = mc.level;
           BlockPos center = mc.player.blockPosition();
           int r = Math.min(EspConfig.oreRange, 24);
-
-          for (int dx = -r; dx <= r; dx++)
-          for (int dy = -r; dy <= r; dy++)
-          for (int dz = -r; dz <= r; dz++) {
-              BlockPos pos = center.offset(dx, dy, dz);
+          for (int dx=-r;dx<=r;dx++) for (int dy=-r;dy<=r;dy++) for (int dz=-r;dz<=r;dz++) {
+              BlockPos pos = center.offset(dx,dy,dz);
               if (!level.isLoaded(pos)) continue;
               BlockState bs = level.getBlockState(pos);
               float[] col = oreColor(bs);
-              if (col != null) ORES.add(new OreEntry(pos, col[0], col[1], col[2]));
+              if (col != null) ORES.add(new OreEntry(pos,col[0],col[1],col[2]));
           }
       }
 
@@ -56,13 +52,13 @@ package com.esp;
 
           Vec3 cam = event.getCamera().getPosition();
           PoseStack ps = new PoseStack();
-          ps.translate(-cam.x, -cam.y, -cam.z);
+          ps.translate(-cam.x,-cam.y,-cam.z);
 
           var bufSrc = mc.renderBuffers().bufferSource();
           VertexConsumer lines = bufSrc.getBuffer(EspRenderType.espLines());
           for (OreEntry ore : ORES) {
-              double x = ore.pos().getX(), y = ore.pos().getY(), z = ore.pos().getZ();
-              box(ps, lines, x-0.01,y-0.01,z-0.01,x+1.01,y+1.01,z+1.01, ore.r(),ore.g(),ore.b());
+              double x=ore.pos().getX(),y=ore.pos().getY(),z=ore.pos().getZ();
+              box(ps,lines,x-0.01,y-0.01,z-0.01,x+1.01,y+1.01,z+1.01,ore.r(),ore.g(),ore.b());
           }
           bufSrc.endBatch(EspRenderType.espLines());
       }
@@ -95,11 +91,12 @@ package com.esp;
 
       private static void ln(PoseStack ps,VertexConsumer buf,
               double x1,double y1,double z1,double x2,double y2,double z2,float r,float g,float b) {
-          Matrix4f mat=ps.last().pose(); Matrix3f norm=ps.last().normal();
+          Matrix4f mat=ps.last().pose();
           float dx=(float)(x2-x1),dy=(float)(y2-y1),dz=(float)(z2-z1);
           float len=(float)Math.sqrt(dx*dx+dy*dy+dz*dz);
           if(len>1e-6f){dx/=len;dy/=len;dz/=len;}else{dy=1f;}
-          buf.addVertex(mat,(float)x1,(float)y1,(float)z1).setColor(r,g,b,1f).setNormal(norm,dx,dy,dz);
-          buf.addVertex(mat,(float)x2,(float)y2,(float)z2).setColor(r,g,b,1f).setNormal(norm,dx,dy,dz);
+          // MC 1.21.1: setNormal(PoseStack.Pose, nx, ny, nz)
+          buf.addVertex(mat,(float)x1,(float)y1,(float)z1).setColor(r,g,b,1f).setNormal(ps.last(),dx,dy,dz);
+          buf.addVertex(mat,(float)x2,(float)y2,(float)z2).setColor(r,g,b,1f).setNormal(ps.last(),dx,dy,dz);
       }
   }
