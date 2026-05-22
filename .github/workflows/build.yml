@@ -1,65 +1,65 @@
 name: Build JAR
 
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:
+  on:
+    push:
+      branches: [ main, master ]
+    pull_request:
+      branches: [ main, master ]
+    workflow_dispatch:
 
-permissions:
-  contents: write
-  actions: read
+  permissions:
+    contents: write
+    actions: read
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+  jobs:
+    build:
+      runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      steps:
+        - name: Checkout repository
+          uses: actions/checkout@v4
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
+        - name: Set up JDK 21
+          uses: actions/setup-java@v4
+          with:
+            java-version: '21'
+            distribution: 'temurin'
 
-      - name: Setup Gradle 8.8
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.8'
+        - name: Setup Gradle 8.8
+          uses: gradle/actions/setup-gradle@v3
+          with:
+            gradle-version: '8.8'
 
-      - name: Build with Gradle
-        run: gradle build --no-daemon -x test
-        env:
-          GRADLE_OPTS: "-Xmx3G"
+        - name: Build with Gradle
+          run: gradle build --no-daemon -x test
 
-      - name: Upload JAR artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: playersesp-1.0.0
-          path: build/libs/playersesp-1.0.0.jar
-          if-no-files-found: error
+        - name: Upload JAR artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: playersesp-1.0.0
+            path: build/libs/playersesp-1.0.0.jar
+            if-no-files-found: error
 
-      - name: Create Release on main push
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v1.0.0
-          name: Players ESP v1.0.0 — Forge 1.21.1
-          body: |
-            ## Players ESP v1.0.0 — Minecraft Forge 1.21.1
+        - name: Create or Update Release on main push
+          if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+          uses: softprops/action-gh-release@v2
+          with:
+            tag_name: v1.0.0
+            name: Players ESP v1.0.0 — Forge 1.21.1
+            generate_release_notes: false
+            body: |
+              ## Players ESP v1.0.0 — Minecraft Forge 1.21.1
 
-            ### Install
-            Drop `playersesp-1.0.0.jar` into `.minecraft/mods/` and launch Minecraft 1.21.1 with Forge 52.0.47+.
-            Press **G** in-game to toggle ESP on/off.
+              ### Install
+              Drop `playersesp-1.0.0.jar` into `.minecraft/mods/` and launch Minecraft 1.21.1 with Forge 52.0.47+.
+              Press **G** in-game to toggle ESP on/off.
 
-            ### Features
-            - 3D bounding boxes around all players
-            - Health bar above each box  
-            - 64 block render range
-            - Toggle with G key (chat confirmation)
-          files: build/libs/playersesp-1.0.0.jar
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              ### Features
+              - 3D bounding boxes around all players (visible through walls)
+              - Health bar above each box
+              - 64 block render range
+              - Toggle with G key (chat confirmation)
+            files: build/libs/playersesp-1.0.0.jar
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
