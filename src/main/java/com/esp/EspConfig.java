@@ -23,27 +23,29 @@ package com.esp;
       public static boolean noFall        = false;
       public static boolean killAura      = false;
       public static float   killAuraRange = 4.0f;
+      public static int     guiScale      = 1;
 
       public static void load() {
           if (!Files.exists(PATH)) { save(); return; }
           try (Reader rdr = new FileReader(PATH.toFile())) {
               JsonObject o = GSON.fromJson(rdr, JsonObject.class);
               if (o == null) return;
-              espEnabled    = bv(o, "espEnabled",    espEnabled);
-              espR          = fv(o, "espR",           espR);
-              espG          = fv(o, "espG",           espG);
-              espB          = fv(o, "espB",           espB);
-              espRange      = iv(o, "espRange",       espRange);
-              showNick      = bv(o, "showNick",       showNick);
-              showHp        = bv(o, "showHp",         showHp);
-              showArmor     = bv(o, "showArmor",      showArmor);
-              oreEsp        = bv(o, "oreEsp",         oreEsp);
-              oreRange      = iv(o, "oreRange",       oreRange);
-              noFall        = bv(o, "noFall",         noFall);
-              killAura      = bv(o, "killAura",       killAura);
-              killAuraRange = fv(o, "killAuraRange",  killAuraRange);
+              espEnabled    = bv(o,"espEnabled",    espEnabled);
+              espR          = fv(o,"espR",           espR);
+              espG          = fv(o,"espG",           espG);
+              espB          = fv(o,"espB",           espB);
+              espRange      = iv(o,"espRange",       espRange);
+              showNick      = bv(o,"showNick",       showNick);
+              showHp        = bv(o,"showHp",         showHp);
+              showArmor     = bv(o,"showArmor",      showArmor);
+              oreEsp        = bv(o,"oreEsp",         oreEsp);
+              oreRange      = iv(o,"oreRange",       oreRange);
+              noFall        = bv(o,"noFall",         noFall);
+              killAura      = bv(o,"killAura",       killAura);
+              killAuraRange = fv(o,"killAuraRange",  killAuraRange);
+              guiScale      = iv(o,"guiScale",       guiScale);
           } catch (Exception e) {
-              LOG.warn("[PlayerESP] Не удалось загрузить конфиг, сброс: {}", e.getMessage());
+              LOG.warn("[PlayerESP] Не удалось загрузить конфиг: {}", e.getMessage());
               save();
           }
       }
@@ -65,14 +67,15 @@ package com.esp;
               o.addProperty("noFall",        noFall);
               o.addProperty("killAura",      killAura);
               o.addProperty("killAuraRange", killAuraRange);
+              o.addProperty("guiScale",      guiScale);
               try (Writer w = new FileWriter(PATH.toFile())) { GSON.toJson(o, w); }
           } catch (Exception e) {
-              LOG.error("[PlayerESP] Ошибка сохранения конфига: {}", e.getMessage());
+              LOG.error("[PlayerESP] Ошибка сохранения: {}", e.getMessage());
           }
       }
 
-      private static boolean bv(JsonObject o, String k, boolean d) { return o.has(k) ? o.get(k).getAsBoolean() : d; }
-      private static float   fv(JsonObject o, String k, float   d) { return o.has(k) ? o.get(k).getAsFloat()   : d; }
-      private static int     iv(JsonObject o, String k, int     d) { return o.has(k) ? o.get(k).getAsInt()     : d; }
+      private static boolean bv(JsonObject o,String k,boolean d){return o.has(k)?o.get(k).getAsBoolean():d;}
+      private static float   fv(JsonObject o,String k,float   d){return o.has(k)?o.get(k).getAsFloat()  :d;}
+      private static int     iv(JsonObject o,String k,int     d){return o.has(k)?o.get(k).getAsInt()    :d;}
   }
   

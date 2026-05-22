@@ -10,11 +10,11 @@ package com.esp;
 
   @Mod.EventBusSubscriber(modid = PlayersESP.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
   public class EspKeyHandler {
-      public static final KeyMapping KEY_TOGGLE   = new KeyMapping("key.playersesp.toggle",   InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, "key.categories.playersesp");
-      public static final KeyMapping KEY_GUI      = new KeyMapping("key.playersesp.gui",      InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_H, "key.categories.playersesp");
-      public static final KeyMapping KEY_ORE      = new KeyMapping("key.playersesp.ore",      InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_J, "key.categories.playersesp");
-      public static final KeyMapping KEY_NOFALL   = new KeyMapping("key.playersesp.nofail",   InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N, "key.categories.playersesp");
-      public static final KeyMapping KEY_KILLAURA = new KeyMapping("key.playersesp.killaura", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.playersesp");
+      public static final KeyMapping KEY_TOGGLE   = new KeyMapping("key.playersesp.toggle",   InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G,   "key.categories.playersesp");
+      public static final KeyMapping KEY_GUI      = new KeyMapping("key.playersesp.gui",      InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_END, "key.categories.playersesp");
+      public static final KeyMapping KEY_ORE      = new KeyMapping("key.playersesp.ore",      InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_J,   "key.categories.playersesp");
+      public static final KeyMapping KEY_NOFALL   = new KeyMapping("key.playersesp.nofail",   InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N,   "key.categories.playersesp");
+      public static final KeyMapping KEY_KILLAURA = new KeyMapping("key.playersesp.killaura", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K,   "key.categories.playersesp");
 
       @SubscribeEvent
       public static void onRegisterKeys(RegisterKeyMappingsEvent event) {
