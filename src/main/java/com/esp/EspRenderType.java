@@ -6,14 +6,19 @@ package com.esp;
   import java.util.OptionalDouble;
 
   public abstract class EspRenderType extends RenderType {
-      protected EspRenderType(String n,VertexFormat f,VertexFormat.Mode m,int b,boolean ac,boolean s,Runnable su,Runnable cl){
-          super(n,f,m,b,ac,s,su,cl);
+      protected EspRenderType(String n, VertexFormat f, VertexFormat.Mode m, int b, boolean ac, boolean s, Runnable su, Runnable cl) {
+          super(n, f, m, b, ac, s, su, cl);
       }
+
+      /**
+       * Buffer size: 65536 bytes handles ~1000+ lines before flush,
+       * preventing BufferOverflowException with many visible players/ores.
+       */
       private static final RenderType ESP_LINES = create(
           "esp_lines",
           DefaultVertexFormat.POSITION_COLOR_NORMAL,
           VertexFormat.Mode.LINES,
-          256,
+          65536,
           false, false,
           CompositeState.builder()
               .setShaderState(RENDERTYPE_LINES_SHADER)
@@ -25,5 +30,7 @@ package com.esp;
               .setDepthTestState(NO_DEPTH_TEST)
               .createCompositeState(false)
       );
+
       public static RenderType espLines() { return ESP_LINES; }
   }
+  
