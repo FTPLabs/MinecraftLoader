@@ -15,7 +15,6 @@ package com.esp;
   import net.minecraft.world.phys.Vec3;
   import net.minecraftforge.client.event.RenderLevelStageEvent;
   import net.minecraftforge.eventbus.api.SubscribeEvent;
-  import org.joml.Quaternionf;
 
   import java.util.List;
 
@@ -38,17 +37,15 @@ package com.esp;
           Vec3 camPos = event.getCamera().getPosition();
           float pt    = event.getPartialTick();
 
-          // camera.rotation() = R_cam: ориентация камеры (camera→world).
-          // Матрица вида (view matrix) = R_cam.conjugate() (world→camera).
-          // Строим: viewRotation * T(-camPos) — стандартная view-матрица.
-          Quaternionf viewRot = new Quaternionf(event.getCamera().rotation()).conjugate();
-
+          // Правильный подход: только translate(-camPos), никаких camera rotation в PoseStack.
+          // Шейдер (ModelViewMat uniform) сам применяет view rotation.
+          // Это идентично тому, как рендерятся ванильные entities.
           PoseStack poseStack = new PoseStack();
-          poseStack.mulPose(viewRot);
           poseStack.translate(-camPos.x, -camPos.y, -camPos.z);
 
           MultiBufferSource.BufferSource bufferSource = mc.renderBuffers().bufferSource();
 
+          // Отключаем тест глубины — видно сквозь стены и объекты
           RenderSystem.disableDepthTest();
 
           List<? extends Player> players = mc.level.players();
@@ -59,6 +56,7 @@ package com.esp;
               if (player == mc.player) continue;
               if (player.distanceTo(mc.player) > RANGE) continue;
 
+              // Partial-tick интерполяция — бокс точно следует за анимацией модели
               double px = Mth.lerp(pt, player.xo, player.getX());
               double py = Mth.lerp(pt, player.yo, player.getY());
               double pz = Mth.lerp(pt, player.zo, player.getZ());
@@ -78,10 +76,9 @@ package com.esp;
           bufferSource.endBatch(RenderType.lines());
 
           // ── Проход 2: ники (billboard) ────────────────────────────────────────
-          // Billboard = R_cam (не conjugate!), т.к. base уже имеет R_cam.conj:
-          // R_cam.conj * T(pos) * R_cam * S * v → rotation part = Identity → текст фронтально
-          Quaternionf camRot = event.getCamera().rotation();
-
+          // camera.rotation() — стандартный MC-billboard, такой же как в EntityRenderer.
+          // ModelViewMat(shader) * camera.rotation()(наш) = R_cam.conj * R_cam = Identity
+          // → текст всегда смотрит фронтально в сторону камеры.
           for (Player player : players) {
               if (player == mc.player) continue;
               if (player.distanceTo(mc.player) > RANGE) continue;
@@ -95,7 +92,7 @@ package com.esp;
 
               poseStack.pushPose();
               poseStack.translate(px, py + h + 0.30, pz);
-              poseStack.mulPose(camRot);
+              poseStack.mulPose(event.getCamera().rotation());
               poseStack.scale(-0.025f, -0.025f, 0.025f);
 
               float nameX = -mc.font.width(name) / 2.0f;
