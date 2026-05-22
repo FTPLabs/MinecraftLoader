@@ -1,98 +1,79 @@
 plugins {
-      id 'eclipse'
-      id 'idea'
-      id 'maven-publish'
-      id 'net.minecraftforge.gradle' version '[6.0,6.2)'
-  }
+        id 'eclipse'
+        id 'idea'
+        id 'maven-publish'
+        id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    }
 
-  version = '1.0.0'
-  group = 'com.esp'
-  archivesBaseName = 'playersesp'
+    version = '1.0.0'
+    group = 'com.esp'
+    archivesBaseName = 'playersesp'
 
-  java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+    java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
-  minecraft {
-      mappings channel: 'official', version: '1.21.1'
+    minecraft {
+        mappings channel: 'official', version: '1.21.1'
 
-      copyIdeResources = true
+        copyIdeResources = true
 
-      runs {
-          client {
-              workingDirectory project.file('run')
-              property 'forge.logging.markers', 'REGISTRIES'
-              property 'forge.logging.console.level', 'debug'
-              mods {
-                  playersesp {
-                      source sourceSets.main
-                  }
-              }
-          }
-          server {
-              workingDirectory project.file('run')
-              property 'forge.logging.markers', 'REGISTRIES'
-              property 'forge.logging.console.level', 'debug'
-              mods {
-                  playersesp {
-                      source sourceSets.main
-                  }
-              }
-          }
-      }
-  }
+        runs {
+            client {
+                workingDirectory project.file('run')
+                property 'forge.logging.markers', 'REGISTRIES'
+                property 'forge.logging.console.level', 'debug'
+                mods {
+                    playersesp {
+                        source sourceSets.main
+                    }
+                }
+            }
+            server {
+                workingDirectory project.file('run')
+                property 'forge.logging.markers', 'REGISTRIES'
+                property 'forge.logging.console.level', 'debug'
+                mods {
+                    playersesp {
+                        source sourceSets.main
+                    }
+                }
+            }
+        }
+    }
 
-  sourceSets.main.resources { srcDir 'src/generated/resources' }
+    sourceSets.main.resources { srcDir 'src/generated/resources' }
 
-  repositories {
-      maven { url = 'https://maven.minecraftforge.net' }
-      mavenCentral()
-  }
+    repositories {
+        maven { url = 'https://maven.minecraftforge.net' }
+        mavenCentral()
+    }
 
-  dependencies {
-      minecraft 'net.minecraftforge:forge:1.21.1-52.0.47'
-  }
+    dependencies {
+        minecraft 'net.minecraftforge:forge:1.21.1-52.0.47'
+    }
 
-  jar {
-      manifest {
-          attributes([
-              'Specification-Title'   : 'playersesp',
-              'Specification-Vendor'  : 'esp',
-              'Specification-Version' : '1',
-              'Implementation-Title'  : project.name,
-              'Implementation-Version': project.jar.archiveVersion,
-              'Implementation-Vendor' : 'esp',
-          ])
-      }
-  }
+    jar {
+        manifest {
+            attributes([
+                'Specification-Title'   : 'playersesp',
+                'Specification-Vendor'  : 'esp',
+                'Specification-Version' : '1',
+                'Implementation-Title'  : project.name,
+                'Implementation-Version': project.jar.archiveVersion,
+                'Implementation-Vendor' : 'esp',
+            ])
+        }
+    }
 
-  publishing {
-      publications {
-          mavenJava(MavenPublication) {
-              artifact jar
-          }
-      }
-      repositories {
-          maven {
-              url "file://${project.projectDir}/mcmodsrepo"
-          }
-      }
-  }
-  
-  // Временная задача для обнаружения Forge event классов
-  task listForgeEventClasses {
-      doLast {
-          def forgeClientEventPkg = 'net/minecraftforge/client/event'
-          configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.each { artifact ->
-              def f = artifact.file
-              if (f.name.contains('forge') || f.name.contains('client')) {
-                  try {
-                      def jar = new java.util.jar.JarFile(f)
-                      jar.entries().findAll { it.name.startsWith(forgeClientEventPkg) && it.name.endsWith('.class') }.each {
-                          println "EVENT_CLASS: " + it.name.replace('/', '.').replace('.class', '')
-                      }
-                      jar.close()
-                  } catch (e) {}
-              }
-          }
-      }
-  }
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                artifact jar
+            }
+        }
+        repositories {
+            maven {
+                url "file://${project.projectDir}/mcmodsrepo"
+            }
+        }
+    }
   
