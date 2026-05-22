@@ -27,23 +27,17 @@ package com.esp;
   import java.util.ArrayList;
   import java.util.List;
 
-  /**
-   * Custom HUD overlay: Armor HUD, Potion HUD, Reach Display.
-   *
-   * FIX v1.6:
-   *  - fill(): исправлена логика alpha — 0-alpha = невидимый (не заменять на 1)
-   *  - renderArmorHud(): убраны лишние endBatch внутри цикла (оптимизация)
-   */
   @Mod.EventBusSubscriber(modid = PlayersESP.MOD_ID, value = Dist.CLIENT)
   public class EspHudRenderer {
 
       @SubscribeEvent
       public static void onRenderTick(TickEvent.RenderTickEvent event) {
           if (event.phase != TickEvent.Phase.END) return;
-
           Minecraft mc = Minecraft.getInstance();
           if (mc.level == null || mc.player == null || mc.screen != null) return;
-          boolean anyHud = EspConfig.armorHud || EspConfig.potionHud || EspConfig.reachDisplay || EspConfig.statusHud;
+
+          boolean anyHud = EspConfig.armorHud || EspConfig.potionHud
+                        || EspConfig.reachDisplay || EspConfig.statusHud;
           if (!anyHud) return;
 
           int sw = mc.getWindow().getGuiScaledWidth();
@@ -55,51 +49,51 @@ package com.esp;
           RenderSystem.defaultBlendFunc();
 
           PoseStack ps = new PoseStack();
-          MultiBufferSource.BufferSource bufSource = mc.renderBuffers().bufferSource();
+          MultiBufferSource.BufferSource buf = mc.renderBuffers().bufferSource();
 
-          if (EspConfig.armorHud)     renderArmorHud(mc, ps, bufSource, 4, 4, sw);
-          if (EspConfig.potionHud)    renderPotionHud(mc, ps, bufSource, sw - 4, 4);
-          if (EspConfig.reachDisplay) renderReachDisplay(mc, ps, bufSource, sw, sh);
-          if (EspConfig.statusHud)    renderStatusHud(mc, ps, bufSource, sw, sh);
+          if (EspConfig.armorHud)     renderArmorHud(mc, ps, buf, 4, 4, sw);
+          if (EspConfig.potionHud)    renderPotionHud(mc, ps, buf, sw - 4, 4);
+          if (EspConfig.reachDisplay) renderReachDisplay(mc, ps, buf, sw, sh);
+          if (EspConfig.statusHud)    renderStatusHud(mc, ps, buf, sw, sh);
 
-          bufSource.endBatch();
+          buf.endBatch();
       }
 
+      // ── Helpers ──────────────────────────────────────────────────────────────
+
       /**
-       * FIX: оригинальный код заменял alpha=0 на 1 (непрозрачный), что некорректно.
-       * Теперь: если alpha=0 — пропускаем отрисовку (невидимый цвет).
+       * FIX: alpha=0 -> skip (invisible), not force-opaque.
        */
       private static void fill(Matrix4f m, int x1, int y1, int x2, int y2, int color) {
           float a = ((color >> 24) & 0xFF) / 255f;
-          if (a <= 0f) return; // FIX: прозрачный — не рисуем вообще
+          if (a <= 0f) return;
           float r = ((color >> 16) & 0xFF) / 255f;
           float g = ((color >> 8)  & 0xFF) / 255f;
           float b = (color         & 0xFF) / 255f;
           RenderSystem.setShader(GameRenderer::getPositionColorShader);
-          var buf = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-          buf.addVertex(m, x1, y1, 0).setColor(r, g, b, a);
-          buf.addVertex(m, x1, y2, 0).setColor(r, g, b, a);
-          buf.addVertex(m, x2, y2, 0).setColor(r, g, b, a);
-          buf.addVertex(m, x2, y1, 0).setColor(r, g, b, a);
-          BufferUploader.drawWithShader(buf.buildOrThrow());
+          var vb = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+          vb.addVertex(m, x1, y1, 0).setColor(r, g, b, a);
+          vb.addVertex(m, x1, y2, 0).setColor(r, g, b, a);
+          vb.addVertex(m, x2, y2, 0).setColor(r, g, b, a);
+          vb.addVertex(m, x2, y1, 0).setColor(r, g, b, a);
+          BufferUploader.drawWithShader(vb.buildOrThrow());
       }
 
-      private static void text(Minecraft mc, PoseStack ps, MultiBufferSource bufSource,
+      private static void text(Minecraft mc, PoseStack ps, MultiBufferSource buf,
                                 String txt, int x, int y, int color) {
           mc.font.drawInBatch(txt, x, y, color, false, ps.last().pose(),
-              bufSource, Font.DisplayMode.SEE_THROUGH, 0, LightTexture.FULL_BRIGHT);
+              buf, Font.DisplayMode.SEE_THROUGH, 0, LightTexture.FULL_BRIGHT);
       }
 
-      // ── Armor HUD ──────────────────────────────────────────────────────────
+      // ── Armor HUD ────────────────────────────────────────────────────────────
 
       private static void renderArmorHud(Minecraft mc, PoseStack ps,
-                                          MultiBufferSource.BufferSource buf, int x, int y, int sw) {
+                                          MultiBufferSource.BufferSource buf,
+                                          int x, int y, int sw) {
           EquipmentSlot[] slots  = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
           String[]        labels = { "Шлем ", "Нагр ", "Порт ", "Бот  " };
           int bgW = 112, rowH = 10, totalH = slots.length * (rowH + 4) + 4;
           var m = ps.last().pose();
-
-          // Фон рендерим один раз до всего текста
           fill(m, x - 2, y - 2, x + bgW, y + totalH, 0xAA050C1E);
           fill(m, x - 2, y - 2, x + bgW, y - 1,      0xFF7C5CFC);
           buf.endBatch();
@@ -108,18 +102,17 @@ package com.esp;
               ItemStack stack = mc.player.getItemBySlot(slots[i]);
               int ry = y + 2 + i * (rowH + 4);
               if (stack.isEmpty()) {
-                  text(mc, ps, buf, labels[i] + "—", x + 2, ry, 0xFF555555);
+                  text(mc, ps, buf, labels[i] + "-", x + 2, ry, 0xFF555555);
                   continue;
               }
               int   maxDur = stack.getMaxDamage();
               int   curDur = maxDur > 0 ? maxDur - stack.getDamageValue() : -1;
               float pct    = maxDur > 0 ? (float) curDur / maxDur : 1f;
               int   col    = durColor(pct);
-              text(mc, ps, buf, labels[i] + (maxDur > 0 ? curDur + "/" + maxDur : "\u221e"), x + 2, ry, col);
-
+              String label = labels[i] + (maxDur > 0 ? curDur + "/" + maxDur : "inf");
+              text(mc, ps, buf, label, x + 2, ry, col);
               if (maxDur > 0) {
                   int bx = x + 2, by = ry + rowH;
-                  // FIX: endBatch только один раз после всего текста в итерации, не внутри цикла
                   buf.endBatch();
                   fill(m, bx, by, bx + bgW - 6, by + 2, 0xFF1A1A2E);
                   fill(m, bx, by, bx + (int)(pct * (bgW - 6)), by + 2, col);
@@ -127,10 +120,11 @@ package com.esp;
           }
       }
 
-      // ── Potion HUD ─────────────────────────────────────────────────────────
+      // ── Potion HUD ───────────────────────────────────────────────────────────
 
       private static void renderPotionHud(Minecraft mc, PoseStack ps,
-                                           MultiBufferSource.BufferSource buf, int rightX, int startY) {
+                                           MultiBufferSource.BufferSource buf,
+                                           int rightX, int startY) {
           var effects = mc.player.getActiveEffects();
           if (effects.isEmpty()) return;
 
@@ -152,7 +146,7 @@ package com.esp;
               if (name.length() > 13) name = name.substring(0, 12) + "..";
               int    amp  = eff.getAmplifier() + 1;
               int    dur  = eff.getDuration();
-              String time = dur > 72000 ? "\u221e" : String.format("%d:%02d", dur / 1200, (dur % 1200) / 20);
+              String time = dur > 72000 ? "inf" : String.format("%d:%02d", dur / 1200, (dur % 1200) / 20);
               String txt  = (amp > 1 ? amp + "x " : "") + name + " " + time;
               boolean good = eff.getEffect().value().getCategory() == MobEffectCategory.BENEFICIAL;
               text(mc, ps, buf, txt, rightX - bgW + 2, y + 2, good ? 0xFF4ADE80 : 0xFFF87171);
@@ -160,12 +154,13 @@ package com.esp;
           }
       }
 
-      // ── Reach Display ──────────────────────────────────────────────────────
+      // ── Reach Display ─────────────────────────────────────────────────────────
 
       private static void renderReachDisplay(Minecraft mc, PoseStack ps,
-                                              MultiBufferSource.BufferSource buf, int sw, int sh) {
-          Player nearest  = null;
-          double minDist  = Double.MAX_VALUE;
+                                              MultiBufferSource.BufferSource buf,
+                                              int sw, int sh) {
+          Player nearest = null;
+          double minDist = Double.MAX_VALUE;
           try {
               for (Player p : List.copyOf(mc.level.players())) {
                   if (p == mc.player) continue;
@@ -176,50 +171,48 @@ package com.esp;
           if (nearest == null) return;
 
           int    col = minDist <= 3.5 ? 0xFF4ADE80 : minDist <= 6 ? 0xFFFACC15 : 0xFFF87171;
-          String txt = nearest.getGameProfile().getName() + " \u2014 " + String.format("%.1f", minDist) + " \
+          String txt = nearest.getGameProfile().getName() + " - " + String.format("%.1f", minDist) + " bl.";
+          int    tw  = mc.font.width(txt);
+          text(mc, ps, buf, txt, sw / 2 - tw / 2, sh / 2 + 22, col);
+      }
+
       // ── Status HUD — список активных модулей ──────────────────────────────────
 
       private static void renderStatusHud(Minecraft mc, PoseStack ps,
-                                           MultiBufferSource.BufferSource buf, int sw, int sh) {
-          // Собираем только включённые модули
-          java.util.List<String> lines = new java.util.ArrayList<>();
-          if (EspConfig.espEnabled)    lines.add("\u00A7aESP");
-          if (EspConfig.tracer)        lines.add("\u00A7aТрейсеры");
-          if (EspConfig.oreEsp)        lines.add("\u00A7aОреESP");
-          if (EspConfig.miningBot)     lines.add("\u00A7eМайнБот [" + EspConfig.ORE_TYPE_NAMES[EspConfig.miningOreType] + "]");
-          if (EspConfig.killAura)      lines.add("\u00A7cКиллАура");
-          if (EspConfig.noFall)        lines.add("\u00A7aАнтиУрон");
-          if (EspConfig.alwaysSprint)  lines.add("\u00A7aСпринт");
-          if (EspConfig.nightVision)   lines.add("\u00A7aНочьВид");
-          if (EspConfig.noSlowdown)    lines.add("\u00A7aБезЗамедл.");
-          if (EspConfig.antiKnockback) lines.add("\u00A7aАнтиОтброс");
-          if (EspConfig.autoArmor)     lines.add("\u00A7aАвтоБроня");
-          if (EspConfig.autoReconnect) lines.add("\u00A7eАвтоРеконн.");
-          if (EspConfig.antiAfk)       lines.add("\u00A7eАнтиAFK");
-          if (EspConfig.arrowPredict)  lines.add("\u00A7aТраект.");
+                                           MultiBufferSource.BufferSource buf,
+                                           int sw, int sh) {
+          List<String> active = new ArrayList<>();
+          if (EspConfig.espEnabled)    active.add("[ESP]");
+          if (EspConfig.tracer)        active.add("[Tracers]");
+          if (EspConfig.oreEsp)        active.add("[OreESP]");
+          if (EspConfig.miningBot)     active.add("[Bot: " + EspConfig.ORE_TYPE_NAMES[EspConfig.miningOreType] + "]");
+          if (EspConfig.killAura)      active.add("[KillAura]");
+          if (EspConfig.noFall)        active.add("[NoFall]");
+          if (EspConfig.alwaysSprint)  active.add("[Sprint]");
+          if (EspConfig.nightVision)   active.add("[NightVision]");
+          if (EspConfig.noSlowdown)    active.add("[NoSlow]");
+          if (EspConfig.antiKnockback) active.add("[AntiKB]");
+          if (EspConfig.autoArmor)     active.add("[AutoArmor]");
+          if (EspConfig.autoReconnect) active.add("[Reconnect]");
+          if (EspConfig.antiAfk)       active.add("[AntiAFK]");
+          if (EspConfig.arrowPredict)  active.add("[AimLine]");
 
-          if (lines.isEmpty()) return;
+          if (active.isEmpty()) return;
 
-          int rowH  = 10;
-          int pad   = 3;
-          int bgW   = 80;
-          int bgH   = lines.size() * rowH + pad * 2;
-          int bx    = sw - bgW - 2;
-          int by    = sh - bgH - 2;
-          var m = ps.last().pose();
+          int rowH = 10, pad = 3;
+          int bgW  = 82;
+          int bgH  = active.size() * rowH + pad * 2;
+          int bx   = sw - bgW - 2;
+          int by   = sh - bgH - 2;
+          var m    = ps.last().pose();
 
           fill(m, bx - 1, by - 1, bx + bgW + 1, by + bgH + 1, 0xAA050C1E);
           fill(m, bx - 1, by - 1, bx + bgW + 1, by,           0xFF7C5CFC);
           buf.endBatch();
 
-          for (int i = 0; i < lines.size(); i++) {
-              text(mc, ps, buf, lines.get(i), bx + pad, by + pad + i * rowH, 0xFFFFFFFF);
+          for (int i = 0; i < active.size(); i++) {
+              text(mc, ps, buf, active.get(i), bx + pad, by + pad + i * rowH, 0xFF4ADE80);
           }
-      }
-
-  u0431\u043b.";
-          int    tw  = mc.font.width(txt);
-          text(mc, ps, buf, txt, sw / 2 - tw / 2, sh / 2 + 22, col);
       }
 
       private static int durColor(float pct) {
