@@ -30,9 +30,6 @@ name: Build JAR
           with:
             gradle-version: '8.8'
 
-        - name: List Forge event classes
-          run: gradle listForgeEventClasses --no-daemon 2>&1 | grep EVENT_CLASS || true
-
         - name: Build with Gradle
           run: gradle build --no-daemon -x test
 
