@@ -16,11 +16,14 @@ package com.esp;
           "key.playersesp.gui",    InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_H, "key.categories.playersesp");
       public static final KeyMapping KEY_ORE    = new KeyMapping(
           "key.playersesp.ore",    InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_J, "key.categories.playersesp");
+      public static final KeyMapping KEY_FLY    = new KeyMapping(
+          "key.playersesp.fly",    InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F, "key.categories.playersesp");
 
       @SubscribeEvent
       public static void onRegisterKeys(RegisterKeyMappingsEvent event) {
           event.register(KEY_TOGGLE);
           event.register(KEY_GUI);
           event.register(KEY_ORE);
+          event.register(KEY_FLY);
       }
   }
