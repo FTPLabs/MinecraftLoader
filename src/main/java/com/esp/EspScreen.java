@@ -146,10 +146,18 @@ package com.esp;
           tog(x+half+4, y, half, "Майнинг-бот [B]", EspConfig.miningBot, v -> { EspConfig.miningBot = v; EspKeyTickHandler.markDirty(); }); y += STEP;
           sld(x, y, w, "Радиус: ", EspConfig.oreRange, (EspConfig.oreRange - 8.0) / 24.0,
               v -> { EspConfig.oreRange = (int)(8 + v * 24); EspKeyTickHandler.markDirty(); },
-              v -> "Радиус: " + (int)(8 + v * 24) + " бл.");
+              v -> "Радиус: " + (int)(8 + v * 24) + " бл."); y += STEP;
+          addRenderableWidget(Button.builder(
+              Component.literal("\u00A77Руда: \u00A7b" + EspConfig.ORE_TYPE_NAMES[EspConfig.miningOreType]),
+              b -> {
+                  EspConfig.miningOreType = (EspConfig.miningOreType + 1) % EspConfig.ORE_TYPE_NAMES.length;
+                  EspKeyTickHandler.markDirty();
+                  if (minecraft != null) minecraft.setScreen(new EspScreen());
+              }
+          ).pos(x, y).size(w, BTN_H).build());
       }
 
-      private void buildCombat(int x, int y, int w) {
+          private void buildCombat(int x, int y, int w) {
           int half = (w - 4) / 2;
           tog(x, y, half, "АнтиУрон [N]", EspConfig.noFall,   v -> { EspConfig.noFall   = v; EspKeyTickHandler.markDirty(); });
           tog(x+half+4, y, half, "КиллАура [K]", EspConfig.killAura, v -> { EspConfig.killAura = v; EspKeyTickHandler.markDirty(); }); y += STEP;
@@ -172,7 +180,8 @@ package com.esp;
           tog(x, y, half, "Броня HUD",         EspConfig.armorHud,    v -> { EspConfig.armorHud    = v; EspKeyTickHandler.markDirty(); });
           tog(x+half+4, y, half, "Зелья HUD",  EspConfig.potionHud,   v -> { EspConfig.potionHud   = v; EspKeyTickHandler.markDirty(); }); y += STEP;
           tog(x, y, half, "Дистанция цели",    EspConfig.reachDisplay, v -> { EspConfig.reachDisplay = v; EspKeyTickHandler.markDirty(); });
-          tog(x+half+4, y, half, "Траект. стрелы", EspConfig.arrowPredict, v -> { EspConfig.arrowPredict = v; EspKeyTickHandler.markDirty(); });
+          tog(x+half+4, y, half, "Траект. стрелы", EspConfig.arrowPredict, v -> { EspConfig.arrowPredict = v; EspKeyTickHandler.markDirty(); }); y += STEP;
+          tog(x, y, w,   "Статус модулей",     EspConfig.statusHud,   v -> { EspConfig.statusHud   = v; EspKeyTickHandler.markDirty(); });
       }
 
       private void buildAuto(int x, int y, int w) {
