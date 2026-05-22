@@ -1,7 +1,11 @@
 package com.esp;
 
+    import com.mojang.blaze3d.systems.RenderSystem;
+    import com.mojang.blaze3d.vertex.PoseStack;
+    import com.mojang.blaze3d.vertex.VertexSorting;
     import net.minecraft.client.Minecraft;
     import net.minecraft.client.gui.GuiGraphics;
+    import net.minecraft.client.renderer.MultiBufferSource;
     import net.minecraft.network.chat.Component;
     import net.minecraft.world.effect.MobEffectCategory;
     import net.minecraft.world.effect.MobEffectInstance;
@@ -9,41 +13,48 @@ package com.esp;
     import net.minecraft.world.entity.player.Player;
     import net.minecraft.world.item.ItemStack;
     import net.minecraftforge.api.distmarker.Dist;
-    import net.minecraftforge.client.event.RenderGuiLayerEvent;
+    import net.minecraftforge.event.TickEvent;
     import net.minecraftforge.eventbus.api.SubscribeEvent;
     import net.minecraftforge.fml.common.Mod;
+    import org.joml.Matrix4f;
 
     import java.util.ArrayList;
     import java.util.List;
 
     /**
-     * HUD-оверлей: Armor HUD, Potion HUD, Reach Display.
-     * Использует RenderGuiLayerEvent.Post (Forge 1.21.1-52.x).
-     * Дедупликация по nanoTime: рендер только 1 раз за кадр.
+     * Custom HUD overlay: Armor HUD, Potion HUD, Reach Display.
+     * Использует TickEvent.RenderTickEvent.END + ручную ortho-проекцию.
+     * Не требует GUI rendering событий (которые изменились в Forge 1.21.1-52.x).
      */
     @Mod.EventBusSubscriber(modid = PlayersESP.MOD_ID, value = Dist.CLIENT)
     public class EspHudRenderer {
 
-        // Рендерим только 1 раз за кадр (событие стреляет для каждого слоя GUI)
-        private static long lastFrameNs = 0L;
-
         @SubscribeEvent
-        public static void onRenderGuiLayer(RenderGuiLayerEvent.Post event) {
-            long now = System.nanoTime();
-            if (now - lastFrameNs < 8_000_000L) return; // < 8 мс → тот же кадр, пропускаем
-            lastFrameNs = now;
+        public static void onRenderTick(TickEvent.RenderTickEvent event) {
+            if (event.phase != TickEvent.Phase.END) return;
 
             Minecraft mc = Minecraft.getInstance();
             if (mc.level == null || mc.player == null || mc.screen != null) return;
+            if (!EspConfig.armorHud && !EspConfig.potionHud && !EspConfig.reachDisplay) return;
 
-            GuiGraphics g  = event.getGuiGraphics();
             int sw = mc.getWindow().getGuiScaledWidth();
             int sh = mc.getWindow().getGuiScaledHeight();
+
+            // Устанавливаем 2D ортогональную проекцию для GUI-координат
+            Matrix4f orthoMatrix = new Matrix4f().setOrtho(0, sw, sh, 0, -1000f, 1000f);
+            RenderSystem.setProjectionMatrix(orthoMatrix, VertexSorting.ORTHOGRAPHIC_Z);
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+
+            MultiBufferSource.BufferSource bufSource = mc.renderBuffers().bufferSource();
+            GuiGraphics g = new GuiGraphics(mc, new PoseStack(), bufSource);
 
             int y = 4;
             if (EspConfig.armorHud)     { y = renderArmorHud(g, mc, 4, y) + 6; }
             if (EspConfig.potionHud)    { renderPotionHud(g, mc, sw - 4, 4); }
             if (EspConfig.reachDisplay) { renderReachDisplay(g, mc, sw, sh); }
+
+            bufSource.endBatch();
         }
 
         // ── Armor HUD ────────────────────────────────────────────────────────
@@ -81,8 +92,7 @@ package com.esp;
             var effects = mc.player.getActiveEffects();
             if (effects.isEmpty()) return;
 
-            // Forge 1.21 API: MobEffectInstance.getEffect() → Holder<MobEffect>
-            // Доступ к методам MobEffect через .value()
+            // MC 1.21: MobEffectInstance.getEffect() → Holder<MobEffect>, используем .value()
             List<MobEffectInstance> sorted = new ArrayList<>(effects);
             sorted.sort((a, b) -> {
                 boolean ab = a.getEffect().value().getCategory() == MobEffectCategory.BENEFICIAL;
@@ -90,13 +100,11 @@ package com.esp;
                 return Boolean.compare(!ab, !bb);
             });
 
-            int bgW = 130, bgH = sorted.size() * 13 + 6;
-            int y = startY;
+            int bgW = 130, bgH = sorted.size() * 13 + 6, y = startY;
             g.fill(rightX - bgW - 2, y - 2, rightX + 2, y + bgH, 0xAA050C1E);
             g.fillGradient(rightX - bgW - 2, y - 2, rightX + 2, y - 1, 0xFF22D3EE, 0xFF7C5CFC);
 
             for (MobEffectInstance eff : sorted) {
-                // .value().getDescriptionId() — правильный API 1.21 вместо getDisplayName()
                 String name = Component.translatable(eff.getEffect().value().getDescriptionId()).getString();
                 if (name.length() > 13) name = name.substring(0, 12) + "..";
                 int amp = eff.getAmplifier() + 1;
@@ -111,8 +119,8 @@ package com.esp;
 
         // ── Reach Display ────────────────────────────────────────────────────
         private static void renderReachDisplay(GuiGraphics g, Minecraft mc, int sw, int sh) {
-            Player nearest  = null;
-            double minDist  = Double.MAX_VALUE;
+            Player nearest = null;
+            double minDist = Double.MAX_VALUE;
             try {
                 for (Player p : List.copyOf(mc.level.players())) {
                     if (p == mc.player) continue;
@@ -128,9 +136,7 @@ package com.esp;
         }
 
         private static int durColor(float pct) {
-            return 0xFF000000
-                | ((int)((1f - pct) * 255) << 16)
-                | ((int)(pct * 255) << 8);
+            return 0xFF000000 | ((int)((1f - pct) * 255) << 16) | ((int)(pct * 255) << 8);
         }
     }
   
