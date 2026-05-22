@@ -10,33 +10,14 @@ package com.esp;
 
     @Mod.EventBusSubscriber(modid = PlayersESP.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
     public class EspKeyHandler {
-        /** [G] — ESP вкл/выкл */
-        public static final KeyMapping KEY_TOGGLE = new KeyMapping(
-            "key.playersesp.toggle",      InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G,      "key.categories.playersesp");
-
-        /** [Delete] — Открыть меню */
-        public static final KeyMapping KEY_GUI = new KeyMapping(
-            "key.playersesp.open",        InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_DELETE, "key.categories.playersesp");
-
-        /** [J] — Сканер руд */
-        public static final KeyMapping KEY_ORE = new KeyMapping(
-            "key.playersesp.ore",         InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_J,      "key.categories.playersesp");
-
-        /** [N] — АнтиУрон от падения */
-        public static final KeyMapping KEY_NOFALL = new KeyMapping(
-            "key.playersesp.nofall",      InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N,      "key.categories.playersesp");
-
-        /** [K] — КиллАура */
-        public static final KeyMapping KEY_KILLAURA = new KeyMapping(
-            "key.playersesp.killaura",    InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K,      "key.categories.playersesp");
-
-        /** [M] — Всегда спринт */
-        public static final KeyMapping KEY_SPRINT = new KeyMapping(
-            "key.playersesp.sprint",      InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_M,      "key.categories.playersesp");
-
-        /** [V] — Ночное зрение */
-        public static final KeyMapping KEY_NIGHTVISION = new KeyMapping(
-            "key.playersesp.nightvision", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V,      "key.categories.playersesp");
+        public static final KeyMapping KEY_TOGGLE      = new KeyMapping("key.playersesp.toggle",      InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G,      "key.categories.playersesp");
+        public static final KeyMapping KEY_GUI         = new KeyMapping("key.playersesp.open",         InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_DELETE, "key.categories.playersesp");
+        public static final KeyMapping KEY_ORE         = new KeyMapping("key.playersesp.ore",          InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_J,      "key.categories.playersesp");
+        public static final KeyMapping KEY_NOFALL      = new KeyMapping("key.playersesp.nofall",       InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N,      "key.categories.playersesp");
+        public static final KeyMapping KEY_KILLAURA    = new KeyMapping("key.playersesp.killaura",     InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K,      "key.categories.playersesp");
+        public static final KeyMapping KEY_SPRINT      = new KeyMapping("key.playersesp.sprint",       InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_M,      "key.categories.playersesp");
+        public static final KeyMapping KEY_NIGHTVISION = new KeyMapping("key.playersesp.nightvision",  InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V,      "key.categories.playersesp");
+        public static final KeyMapping KEY_MININGBOT   = new KeyMapping("key.playersesp.miningbot",    InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B,      "key.categories.playersesp");
 
         @SubscribeEvent
         public static void onRegisterKeys(RegisterKeyMappingsEvent event) {
@@ -47,6 +28,7 @@ package com.esp;
             event.register(KEY_KILLAURA);
             event.register(KEY_SPRINT);
             event.register(KEY_NIGHTVISION);
+            event.register(KEY_MININGBOT);
         }
     }
   
