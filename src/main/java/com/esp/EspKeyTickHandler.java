@@ -19,43 +19,30 @@ package com.esp;
           if (mc.level == null || mc.player == null) return;
 
           // ── Клавиши ──────────────────────────────────────────────────────────
-          while (EspKeyHandler.KEY_TOGGLE.consumeClick()) {
-              EspConfig.espEnabled = !EspConfig.espEnabled;
-              EspConfig.save();
-          }
-          while (EspKeyHandler.KEY_GUI.consumeClick()) {
-              if (mc.screen == null) mc.setScreen(new EspScreen());
-          }
-          while (EspKeyHandler.KEY_ORE.consumeClick()) {
-              EspConfig.oreEsp = !EspConfig.oreEsp;
-              EspConfig.save();
-          }
-          while (EspKeyHandler.KEY_FLY.consumeClick()) {
-              EspConfig.flyEnabled = !EspConfig.flyEnabled;
-              EspConfig.save();
-          }
+          while (EspKeyHandler.KEY_TOGGLE.consumeClick()) { EspConfig.espEnabled = !EspConfig.espEnabled; EspConfig.save(); }
+          while (EspKeyHandler.KEY_GUI.consumeClick())    { if (mc.screen == null) mc.setScreen(new EspScreen()); }
+          while (EspKeyHandler.KEY_ORE.consumeClick())    { EspConfig.oreEsp = !EspConfig.oreEsp; EspConfig.save(); }
+          while (EspKeyHandler.KEY_FLY.consumeClick())    { EspConfig.flyEnabled = !EspConfig.flyEnabled; EspConfig.save(); }
 
           // ── Fly hack ─────────────────────────────────────────────────────────
           Player player = mc.player;
           boolean inGame = !player.isCreative() && !player.isSpectator();
 
           if (EspConfig.flyEnabled && inGame) {
-              player.getAbilities().mayfly    = true;
-              player.getAbilities().flying    = true;
-              // flyingSpeed по умолчанию 0.05f (100%), масштабируем по конфигу
-              player.getAbilities().flyingSpeed = 0.05f * EspConfig.flySpeed;
-              // Отправляем пакет серверу каждые 20 тиков (раз в секунду)
+              player.getAbilities().mayfly = true;
+              player.getAbilities().flying = true;
+              // flyingSpeed приватный — используем сеттер (MC 1.21.1)
+              player.getAbilities().setFlyingSpeed(0.05f * Math.max(0.1f, EspConfig.flySpeed));
+              // Отправляем пакет серверу раз в секунду
               if (++flyPacketTick >= 20) {
                   flyPacketTick = 0;
                   player.onUpdateAbilities();
               }
-          } else if (!EspConfig.flyEnabled && inGame) {
-              if (player.getAbilities().mayfly) {
-                  player.getAbilities().mayfly  = false;
-                  player.getAbilities().flying  = false;
-                  player.getAbilities().flyingSpeed = 0.05f;
-                  player.onUpdateAbilities();
-              }
+          } else if (!EspConfig.flyEnabled && inGame && player.getAbilities().mayfly) {
+              player.getAbilities().mayfly = false;
+              player.getAbilities().flying = false;
+              player.getAbilities().setFlyingSpeed(0.05f);
+              player.onUpdateAbilities();
           }
       }
   }
