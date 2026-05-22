@@ -3,14 +3,13 @@ package com.esp;
     import net.minecraft.client.Minecraft;
     import net.minecraft.client.gui.GuiGraphics;
     import net.minecraft.network.chat.Component;
-    import net.minecraft.resources.ResourceLocation;
     import net.minecraft.world.effect.MobEffectCategory;
     import net.minecraft.world.effect.MobEffectInstance;
     import net.minecraft.world.entity.EquipmentSlot;
     import net.minecraft.world.entity.player.Player;
     import net.minecraft.world.item.ItemStack;
     import net.minecraftforge.api.distmarker.Dist;
-    import net.minecraftforge.client.event.RegisterGuiLayersEvent;
+    import net.minecraftforge.client.event.RenderGuiLayerEvent;
     import net.minecraftforge.eventbus.api.SubscribeEvent;
     import net.minecraftforge.fml.common.Mod;
 
@@ -18,41 +17,41 @@ package com.esp;
     import java.util.List;
 
     /**
-     * Кастомный HUD-слой: Armor HUD, Potion HUD, Reach Display.
-     * Регистрируется через RegisterGuiLayersEvent (MOD bus) — корректный API для Forge 1.21.1.
+     * HUD-оверлей: Armor HUD, Potion HUD, Reach Display.
+     * Использует RenderGuiLayerEvent.Post (Forge 1.21.1-52.x).
+     * Дедупликация по nanoTime: рендер только 1 раз за кадр.
      */
-    @Mod.EventBusSubscriber(modid = PlayersESP.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
+    @Mod.EventBusSubscriber(modid = PlayersESP.MOD_ID, value = Dist.CLIENT)
     public class EspHudRenderer {
 
-        @SubscribeEvent
-        public static void onRegisterGuiLayers(RegisterGuiLayersEvent event) {
-            event.registerAboveAll(
-                ResourceLocation.fromNamespaceAndPath(PlayersESP.MOD_ID, "hud"),
-                EspHudRenderer::renderHud
-            );
-        }
+        // Рендерим только 1 раз за кадр (событие стреляет для каждого слоя GUI)
+        private static long lastFrameNs = 0L;
 
-        private static void renderHud(GuiGraphics g, float partialTick) {
+        @SubscribeEvent
+        public static void onRenderGuiLayer(RenderGuiLayerEvent.Post event) {
+            long now = System.nanoTime();
+            if (now - lastFrameNs < 8_000_000L) return; // < 8 мс → тот же кадр, пропускаем
+            lastFrameNs = now;
+
             Minecraft mc = Minecraft.getInstance();
             if (mc.level == null || mc.player == null || mc.screen != null) return;
 
+            GuiGraphics g  = event.getGuiGraphics();
             int sw = mc.getWindow().getGuiScaledWidth();
             int sh = mc.getWindow().getGuiScaledHeight();
 
             int y = 4;
-            if (EspConfig.armorHud)    { y = renderArmorHud(g, mc, 4, y) + 6; }
-            if (EspConfig.potionHud)   { renderPotionHud(g, mc, sw - 4, 4); }
-            if (EspConfig.reachDisplay){ renderReachDisplay(g, mc, sw, sh); }
+            if (EspConfig.armorHud)     { y = renderArmorHud(g, mc, 4, y) + 6; }
+            if (EspConfig.potionHud)    { renderPotionHud(g, mc, sw - 4, 4); }
+            if (EspConfig.reachDisplay) { renderReachDisplay(g, mc, sw, sh); }
         }
 
-        // ── Armor HUD ─────────────────────────────────────────────────────────
+        // ── Armor HUD ────────────────────────────────────────────────────────
         private static int renderArmorHud(GuiGraphics g, Minecraft mc, int x, int y) {
             EquipmentSlot[] slots  = { EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET };
-            String[]        labels = { "Шлем  ", "Нагр  ", "Порт  ", "Ботин " };
+            String[]        labels = { "Шлем  ", "Нагр  ", "Порт  ", "Бот   " };
+            int bgW = 110, rowH = 10, totalH = slots.length * (rowH + 4) + 4;
 
-            int bgW   = 102;
-            int rowH  = 10;
-            int totalH = slots.length * (rowH + 4) + 4;
             g.fill(x - 2, y - 2, x + bgW + 2, y + totalH, 0xAA050C1E);
             g.fillGradient(x - 2, y - 2, x + bgW + 2, y - 1, 0xFF7C5CFC, 0xFF22D3EE);
 
@@ -60,7 +59,8 @@ package com.esp;
                 ItemStack stack = mc.player.getItemBySlot(slots[i]);
                 int ry = y + 2 + i * (rowH + 4);
                 if (stack.isEmpty()) {
-                    g.drawString(mc.font, labels[i] + "—", x + 2, ry, 0xFF555555); continue;
+                    g.drawString(mc.font, labels[i] + "—", x + 2, ry, 0xFF555555);
+                    continue;
                 }
                 int maxDur = stack.getMaxDamage();
                 int curDur = maxDur > 0 ? maxDur - stack.getDamageValue() : -1;
@@ -76,12 +76,13 @@ package com.esp;
             return y + totalH;
         }
 
-        // ── Potion HUD ────────────────────────────────────────────────────────
-        private static void renderPotionHud(GuiGraphics g, Minecraft mc, int rightX, int y) {
+        // ── Potion HUD ───────────────────────────────────────────────────────
+        private static void renderPotionHud(GuiGraphics g, Minecraft mc, int rightX, int startY) {
             var effects = mc.player.getActiveEffects();
             if (effects.isEmpty()) return;
 
-            // Сортируем: полезные сначала. Используем Holder<MobEffect>.value() для 1.21 API.
+            // Forge 1.21 API: MobEffectInstance.getEffect() → Holder<MobEffect>
+            // Доступ к методам MobEffect через .value()
             List<MobEffectInstance> sorted = new ArrayList<>(effects);
             sorted.sort((a, b) -> {
                 boolean ab = a.getEffect().value().getCategory() == MobEffectCategory.BENEFICIAL;
@@ -90,29 +91,28 @@ package com.esp;
             });
 
             int bgW = 130, bgH = sorted.size() * 13 + 6;
+            int y = startY;
             g.fill(rightX - bgW - 2, y - 2, rightX + 2, y + bgH, 0xAA050C1E);
             g.fillGradient(rightX - bgW - 2, y - 2, rightX + 2, y - 1, 0xFF22D3EE, 0xFF7C5CFC);
 
             for (MobEffectInstance eff : sorted) {
-                // 1.21: getEffect() → Holder<MobEffect>, .value() → MobEffect
+                // .value().getDescriptionId() — правильный API 1.21 вместо getDisplayName()
                 String name = Component.translatable(eff.getEffect().value().getDescriptionId()).getString();
-                if (name.length() > 13) name = name.substring(0, 12) + ".";
+                if (name.length() > 13) name = name.substring(0, 12) + "..";
                 int amp = eff.getAmplifier() + 1;
                 int dur = eff.getDuration();
                 String time = dur > 72000 ? "\u221e" : String.format("%d:%02d", dur / 1200, (dur % 1200) / 20);
                 String text = (amp > 1 ? amp + "x " : "") + name + " " + time;
                 boolean good = eff.getEffect().value().getCategory() == MobEffectCategory.BENEFICIAL;
-                int col = good ? 0xFF4ADE80 : 0xFFF87171;
-                g.drawString(mc.font, text, rightX - bgW + 2, y + 2, col);
+                g.drawString(mc.font, text, rightX - bgW + 2, y + 2, good ? 0xFF4ADE80 : 0xFFF87171);
                 y += 13;
             }
         }
 
-        // ── Reach Display ─────────────────────────────────────────────────────
+        // ── Reach Display ────────────────────────────────────────────────────
         private static void renderReachDisplay(GuiGraphics g, Minecraft mc, int sw, int sh) {
-            if (mc.level == null || mc.player == null) return;
-            Player nearest = null;
-            double minDist = Double.MAX_VALUE;
+            Player nearest  = null;
+            double minDist  = Double.MAX_VALUE;
             try {
                 for (Player p : List.copyOf(mc.level.players())) {
                     if (p == mc.player) continue;
@@ -121,13 +121,16 @@ package com.esp;
                 }
             } catch (Exception ignored) {}
             if (nearest == null) return;
+
             int col = minDist <= 3.5 ? 0xFF4ADE80 : minDist <= 6 ? 0xFFFACC15 : 0xFFF87171;
             String text = nearest.getGameProfile().getName() + " — " + String.format("%.1f", minDist) + " бл.";
             g.drawCenteredString(mc.font, text, sw / 2, sh / 2 + 22, col);
         }
 
         private static int durColor(float pct) {
-            return 0xFF000000 | ((int)((1f - pct) * 255) << 16) | ((int)(pct * 255) << 8);
+            return 0xFF000000
+                | ((int)((1f - pct) * 255) << 16)
+                | ((int)(pct * 255) << 8);
         }
     }
   
