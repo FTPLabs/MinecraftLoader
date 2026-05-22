@@ -5,9 +5,9 @@ package com.esp;
   import net.minecraftforge.api.distmarker.Dist;
   import net.minecraftforge.api.distmarker.OnlyIn;
   import net.minecraftforge.common.MinecraftForge;
-  import net.minecraftforge.eventbus.api.IEventBus;
   import net.minecraftforge.fml.common.Mod;
   import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
+  import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
   import org.apache.logging.log4j.LogManager;
   import org.apache.logging.log4j.Logger;
 
@@ -20,13 +20,17 @@ package com.esp;
       public static final String MOD_ID = "playersesp";
       private static final Logger LOG   = LogManager.getLogger(MOD_ID);
 
-      public PlayersESP(IEventBus modBus) {
+      /**
+       * Конструктор БЕЗ аргументов — требование Forge 52.1.x.
+       * Шину событий получаем через FMLJavaModLoadingContext.
+       */
+      public PlayersESP() {
           LOG.info("[PlayerESP] Loading | Developer: FTPDev | github.com/FTPLabs");
           EspConfig.load();
 
-          // Принудительно привязать KEY_GUI к клавише End при каждом запуске
-          // (перекрывает кэш options.txt, если там осталась старая клавиша)
-          modBus.addListener(PlayersESP::onClientSetup);
+          // Подписываемся на clientSetup для принудительной смены клавиши на End
+          FMLJavaModLoadingContext.get().getModEventBus()
+              .addListener(PlayersESP::onClientSetup);
 
           // EspKeyHandler     — auto via @Mod.EventBusSubscriber(bus=MOD)
           // EspKeyTickHandler — auto via @Mod.EventBusSubscriber (FORGE bus)
@@ -34,13 +38,16 @@ package com.esp;
           MinecraftForge.EVENT_BUS.register(OreEspRenderer.class);
       }
 
+      /**
+       * FMLClientSetupEvent — принудительно задаём KEY_GUI = End,
+       * перекрывая любое сохранённое значение в options.txt.
+       */
       @OnlyIn(Dist.CLIENT)
       private static void onClientSetup(FMLClientSetupEvent event) {
           event.enqueueWork(() -> {
-              // Сбрасываем KEY_GUI на End, игнорируя сохранённое значение в options.txt
               EspKeyHandler.KEY_GUI.setKey(InputConstants.getKey("key.keyboard.end"));
               KeyMapping.resetMapping();
-              LOG.info("[PlayerESP] Клавиша меню принудительно задана: End");
+              LOG.info("[PlayerESP] Клавиша меню принудительно: End");
           });
       }
   }
