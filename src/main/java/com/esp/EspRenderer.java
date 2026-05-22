@@ -17,7 +17,6 @@ package com.esp;
 
     public class EspRenderer {
 
-        /** Cached per-frame snapshot — avoids iterating the player list twice. */
         private record PlayerSnapshot(
             double px, double py, double pz,
             double hw, double bh,
@@ -36,14 +35,10 @@ package com.esp;
             Vec3  camPos = event.getCamera().getPosition();
             float pt     = event.getPartialTick();
 
-            // ── Single pass: collect visible player snapshots ─────────────────────
-            // ФИКС: копируем список игроков перед итерацией — защита от CME
+            // ФИКС CME: копируем список перед итерацией
             List<? extends Player> playerList;
-            try {
-                playerList = List.copyOf(mc.level.players());
-            } catch (Exception e) {
-                return;
-            }
+            try { playerList = List.copyOf(mc.level.players()); }
+            catch (Exception e) { return; }
 
             List<PlayerSnapshot> visible = new ArrayList<>();
             for (Player player : playerList) {
@@ -53,11 +48,11 @@ package com.esp;
                 double px = Mth.lerp(pt, player.xo, player.getX());
                 double py = Mth.lerp(pt, player.yo, player.getY());
                 double pz = Mth.lerp(pt, player.zo, player.getZ());
-                double hw = player.getBbWidth()  / 2.0 + 0.05;
-                double bh = player.getBbHeight() + 0.05;
+                // ФИКС: минимальная ширина 0.4 — бокс не сужается вблизи
+                double hw = Math.max(0.4, player.getBbWidth() / 2.0 + 0.05);
+                double bh = Math.max(1.8, player.getBbHeight() + 0.05);
 
                 float hp    = Mth.clamp(player.getHealth() / player.getMaxHealth(), 0f, 1f);
-                // ФИКС: Math.round вместо (int) — правильное округление HP
                 int   hpInt = Math.round(player.getHealth());
                 int   hpMax = Math.round(player.getMaxHealth());
                 int   armor = player.getArmorValue();
@@ -73,58 +68,63 @@ package com.esp;
             ps.translate(-camPos.x, -camPos.y, -camPos.z);
 
             MultiBufferSource.BufferSource bufSrc = mc.renderBuffers().bufferSource();
-
-            // ── Pass 1: bounding boxes + HP bars (lines) ──────────────────────────
             VertexConsumer lines = bufSrc.getBuffer(EspRenderType.espLines());
+
             for (PlayerSnapshot s : visible) {
                 float r = EspConfig.espR, g = EspConfig.espG, b = EspConfig.espB;
-                float rd = r * 0.5f, gd = g * 0.5f, bd = b * 0.5f;
+                float rd = r * 0.45f, gd = g * 0.45f, bd = b * 0.45f;
 
+                // Glow-слой (чуть больше, полупрозрачный) — эффект свечения
+                renderCornerBox(ps, lines,
+                    s.px() - s.hw() - 0.04, s.py() - 0.09, s.pz() - s.hw() - 0.04,
+                    s.px() + s.hw() + 0.04, s.py() + s.bh() + 0.04, s.pz() + s.hw() + 0.04,
+                    r * 0.3f, g * 0.3f, b * 0.3f, rd * 0.3f, gd * 0.3f, bd * 0.3f);
+
+                // Основной бокс
                 renderCornerBox(ps, lines,
                     s.px() - s.hw(), s.py() - 0.05, s.pz() - s.hw(),
                     s.px() + s.hw(), s.py() + s.bh(), s.pz() + s.hw(),
                     r, g, b, rd, gd, bd);
 
-                double bx  = s.px() - s.hw() - 0.10;
+                // HP-бар (слева от бокса)
+                double bx  = s.px() - s.hw() - 0.12;
                 double yBt = s.py() - 0.05, yTp = s.py() + s.bh();
                 double yFl = yBt + (yTp - yBt) * s.hp();
-                EspLineUtil.addLine(ps, lines, bx, yBt, s.pz(), bx, yTp, s.pz(), 0.25f, 0.25f, 0.25f, 0.9f);
+                EspLineUtil.addLine(ps, lines, bx, yBt, s.pz(), bx, yTp, s.pz(), 0.2f, 0.2f, 0.2f, 0.9f);
                 EspLineUtil.addLine(ps, lines, bx, yBt, s.pz(), bx, yFl, s.pz(), 1f - s.hp(), s.hp(), 0f, 1f);
 
-                // ── Трейсеры: линия от камеры к центру игрока ─────────────────
+                // Трейсеры
                 if (EspConfig.tracer) {
-                    double cx = s.px();
-                    double cy = s.py() + s.bh() * 0.5;
-                    double cz = s.pz();
                     EspLineUtil.addLine(ps, lines,
                         camPos.x, camPos.y, camPos.z,
-                        cx, cy, cz,
-                        EspConfig.espR, EspConfig.espG, EspConfig.espB, 0.7f);
+                        s.px(), s.py() + s.bh() * 0.5, s.pz(),
+                        r, g, b, 0.55f);
                 }
             }
             bufSrc.endBatch(EspRenderType.espLines());
 
-            // ── Pass 2: text labels (nick / HP / armor) ───────────────────────────
+            // Pass 2: текстовые метки
             for (PlayerSnapshot s : visible) {
                 ps.pushPose();
-                ps.translate(s.px(), s.py() + s.bh() + 0.28, s.pz());
+                ps.translate(s.px(), s.py() + s.bh() + 0.30, s.pz());
                 ps.mulPose(event.getCamera().rotation());
                 ps.scale(-0.025f, -0.025f, 0.025f);
 
                 float lineY = 0f;
                 if (EspConfig.showNick) {
-                    mc.font.drawInBatch(s.name(), -mc.font.width(s.name()) / 2f, lineY, 0xFFFFFFFF,
+                    String nm = s.name();
+                    mc.font.drawInBatch(nm, -mc.font.width(nm) / 2f, lineY, 0xFFFFFFFF,
                         false, ps.last().pose(), bufSrc, Font.DisplayMode.SEE_THROUGH, 0, LightTexture.FULL_BRIGHT);
                     lineY += 10f;
                 }
                 if (EspConfig.showHp) {
-                    String hp = s.hpInt() + " / " + s.hpMax() + " HP";
+                    String hp = s.hpInt() + "/" + s.hpMax() + " HP";
                     mc.font.drawInBatch(hp, -mc.font.width(hp) / 2f, lineY, s.hpColor(),
                         false, ps.last().pose(), bufSrc, Font.DisplayMode.SEE_THROUGH, 0, LightTexture.FULL_BRIGHT);
                     lineY += 10f;
                 }
                 if (EspConfig.showArmor && s.armor() > 0) {
-                    String ar = s.armor() + " / 20 armor";
+                    String ar = s.armor() + " arm";
                     mc.font.drawInBatch(ar, -mc.font.width(ar) / 2f, lineY, 0xFFBBBBBB,
                         false, ps.last().pose(), bufSrc, Font.DisplayMode.SEE_THROUGH, 0, LightTexture.FULL_BRIGHT);
                 }
@@ -136,27 +136,22 @@ package com.esp;
         private static void renderCornerBox(PoseStack ps, VertexConsumer buf,
                 double x1, double y1, double z1, double x2, double y2, double z2,
                 float r, float g, float b, float rd, float gd, float bd) {
-            float lx = (float)((x2 - x1) * 0.25);
-            float ly = (float)((y2 - y1) * 0.25);
-            float lz = (float)((z2 - z1) * 0.25);
-            float mx1 = (float)x1, my1 = (float)y1, mz1 = (float)z1;
-            float mx2 = (float)x2, my2 = (float)y2, mz2 = (float)z2;
-
-            // Bottom corners
-            seg(ps,buf,mx1,my1,mz1, mx1+lx,my1,mz1, rd,gd,bd); seg(ps,buf,mx1,my1,mz1, mx1,my1,mz1+lz, rd,gd,bd); seg(ps,buf,mx1,my1,mz1, mx1,my1+ly,mz1, rd,gd,bd);
-            seg(ps,buf,mx2,my1,mz1, mx2-lx,my1,mz1, rd,gd,bd); seg(ps,buf,mx2,my1,mz1, mx2,my1,mz1+lz, rd,gd,bd); seg(ps,buf,mx2,my1,mz1, mx2,my1+ly,mz1, rd,gd,bd);
-            seg(ps,buf,mx1,my1,mz2, mx1+lx,my1,mz2, rd,gd,bd); seg(ps,buf,mx1,my1,mz2, mx1,my1,mz2-lz, rd,gd,bd); seg(ps,buf,mx1,my1,mz2, mx1,my1+ly,mz2, rd,gd,bd);
-            seg(ps,buf,mx2,my1,mz2, mx2-lx,my1,mz2, rd,gd,bd); seg(ps,buf,mx2,my1,mz2, mx2,my1,mz2-lz, rd,gd,bd); seg(ps,buf,mx2,my1,mz2, mx2,my1+ly,mz2, rd,gd,bd);
-            // Top corners
-            seg(ps,buf,mx1,my2,mz1, mx1+lx,my2,mz1, r,g,b); seg(ps,buf,mx1,my2,mz1, mx1,my2,mz1+lz, r,g,b); seg(ps,buf,mx1,my2,mz1, mx1,my2-ly,mz1, r,g,b);
-            seg(ps,buf,mx2,my2,mz1, mx2-lx,my2,mz1, r,g,b); seg(ps,buf,mx2,my2,mz1, mx2,my2,mz1+lz, r,g,b); seg(ps,buf,mx2,my2,mz1, mx2,my2-ly,mz1, r,g,b);
-            seg(ps,buf,mx1,my2,mz2, mx1+lx,my2,mz2, r,g,b); seg(ps,buf,mx1,my2,mz2, mx1,my2,mz2-lz, r,g,b); seg(ps,buf,mx1,my2,mz2, mx1,my2-ly,mz2, r,g,b);
-            seg(ps,buf,mx2,my2,mz2, mx2-lx,my2,mz2, r,g,b); seg(ps,buf,mx2,my2,mz2, mx2,my2,mz2-lz, r,g,b); seg(ps,buf,mx2,my2,mz2, mx2,my2-ly,mz2, r,g,b);
+            float lx = (float)((x2-x1)*0.25f), ly = (float)((y2-y1)*0.25f), lz = (float)((z2-z1)*0.25f);
+            float x1f=(float)x1,y1f=(float)y1,z1f=(float)z1,x2f=(float)x2,y2f=(float)y2,z2f=(float)z2;
+            // Bottom
+            seg(ps,buf,x1f,y1f,z1f, x1f+lx,y1f,z1f, rd,gd,bd); seg(ps,buf,x1f,y1f,z1f, x1f,y1f,z1f+lz, rd,gd,bd); seg(ps,buf,x1f,y1f,z1f, x1f,y1f+ly,z1f, rd,gd,bd);
+            seg(ps,buf,x2f,y1f,z1f, x2f-lx,y1f,z1f, rd,gd,bd); seg(ps,buf,x2f,y1f,z1f, x2f,y1f,z1f+lz, rd,gd,bd); seg(ps,buf,x2f,y1f,z1f, x2f,y1f+ly,z1f, rd,gd,bd);
+            seg(ps,buf,x1f,y1f,z2f, x1f+lx,y1f,z2f, rd,gd,bd); seg(ps,buf,x1f,y1f,z2f, x1f,y1f,z2f-lz, rd,gd,bd); seg(ps,buf,x1f,y1f,z2f, x1f,y1f+ly,z2f, rd,gd,bd);
+            seg(ps,buf,x2f,y1f,z2f, x2f-lx,y1f,z2f, rd,gd,bd); seg(ps,buf,x2f,y1f,z2f, x2f,y1f,z2f-lz, rd,gd,bd); seg(ps,buf,x2f,y1f,z2f, x2f,y1f+ly,z2f, rd,gd,bd);
+            // Top
+            seg(ps,buf,x1f,y2f,z1f, x1f+lx,y2f,z1f, r,g,b); seg(ps,buf,x1f,y2f,z1f, x1f,y2f,z1f+lz, r,g,b); seg(ps,buf,x1f,y2f,z1f, x1f,y2f-ly,z1f, r,g,b);
+            seg(ps,buf,x2f,y2f,z1f, x2f-lx,y2f,z1f, r,g,b); seg(ps,buf,x2f,y2f,z1f, x2f,y2f,z1f+lz, r,g,b); seg(ps,buf,x2f,y2f,z1f, x2f,y2f-ly,z1f, r,g,b);
+            seg(ps,buf,x1f,y2f,z2f, x1f+lx,y2f,z2f, r,g,b); seg(ps,buf,x1f,y2f,z2f, x1f,y2f,z2f-lz, r,g,b); seg(ps,buf,x1f,y2f,z2f, x1f,y2f-ly,z2f, r,g,b);
+            seg(ps,buf,x2f,y2f,z2f, x2f-lx,y2f,z2f, r,g,b); seg(ps,buf,x2f,y2f,z2f, x2f,y2f,z2f-lz, r,g,b); seg(ps,buf,x2f,y2f,z2f, x2f,y2f-ly,z2f, r,g,b);
         }
 
-        private static void seg(PoseStack ps, VertexConsumer buf,
-                float x1,float y1,float z1, float x2,float y2,float z2, float r,float g,float b) {
-            EspLineUtil.addLine(ps, buf, x1, y1, z1, x2, y2, z2, r, g, b, 1f);
+        private static void seg(PoseStack ps,VertexConsumer buf,float x1,float y1,float z1,float x2,float y2,float z2,float r,float g,float b) {
+            EspLineUtil.addLine(ps,buf,x1,y1,z1,x2,y2,z2,r,g,b,1f);
         }
     }
   
