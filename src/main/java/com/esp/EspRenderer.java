@@ -15,7 +15,7 @@ package com.esp;
   import net.minecraft.world.phys.Vec3;
   import net.minecraftforge.client.event.RenderLevelStageEvent;
   import net.minecraftforge.eventbus.api.SubscribeEvent;
-  import org.joml.Matrix4f;
+  import org.joml.Quaternionf;
 
   import java.util.List;
 
@@ -35,13 +35,20 @@ package com.esp;
           Minecraft mc = Minecraft.getInstance();
           if (mc.level == null || mc.player == null) return;
 
-          Vec3 camPos  = event.getCamera().getPosition();
-          float pt     = event.getPartialTick();
+          Vec3 camPos = event.getCamera().getPosition();
+          float pt    = event.getPartialTick();
 
-          // Forge 52.x: getPoseStack() возвращает org.joml.Matrix4f (матрица вида)
-          Matrix4f cameraMatrix = event.getPoseStack();
+          // Строим трансформ вручную, не используя event.getPoseStack()
+          // (в Forge 52.x он возвращает матрицу проекции, а не вида — это ломало рендер)
+          //
+          // Правильная цепочка:
+          //   1. mulPose(camera.rotation())  — поворот камеры (вид)
+          //   2. translate(-camPos)          — смещение в начало координат камеры
+          //
+          // Итог: вершина в мировых координатах v  →  camera.R * (v − camPos)
+          //        = корректные view-space координаты
           PoseStack poseStack = new PoseStack();
-          poseStack.last().pose().set(cameraMatrix);
+          poseStack.mulPose(event.getCamera().rotation());
           poseStack.translate(-camPos.x, -camPos.y, -camPos.z);
 
           MultiBufferSource.BufferSource bufferSource = mc.renderBuffers().bufferSource();
@@ -51,7 +58,7 @@ package com.esp;
 
           List<? extends Player> players = mc.level.players();
 
-          // ── Проход 1: боксы и полоска HP ──────────────────────────────────────
+          // ── Проход 1: боксы и HP-бар ──────────────────────────────────────────
           VertexConsumer consumer = bufferSource.getBuffer(RenderType.lines());
           for (Player player : players) {
               if (player == mc.player) continue;
@@ -75,7 +82,11 @@ package com.esp;
           }
           bufferSource.endBatch(RenderType.lines());
 
-          // ── Проход 2: ники над боксами (billboard) ────────────────────────────
+          // ── Проход 2: ники (billboard) ────────────────────────────────────────
+          // Billboard: применяем обратный кватернион камеры, чтобы текст
+          // всегда был ориентирован в плоскости экрана (XY screen-aligned).
+          Quaternionf billboardRot = new Quaternionf(event.getCamera().rotation()).conjugate();
+
           for (Player player : players) {
               if (player == mc.player) continue;
               if (player.distanceTo(mc.player) > RANGE) continue;
@@ -88,25 +99,19 @@ package com.esp;
               String name = player.getGameProfile().getName();
 
               poseStack.pushPose();
-              // Позиция: над верхним краем бокса
               poseStack.translate(px, py + h + 0.30, pz);
-              // Billboard: поворачиваем к камере, как делает ванильный NameTag
-              poseStack.mulPose(event.getCamera().rotation());
-              // Масштаб: стандартный для 3D-текста в мире
+              poseStack.mulPose(billboardRot);
               poseStack.scale(-0.025f, -0.025f, 0.025f);
 
               float nameX = -mc.font.width(name) / 2.0f;
-              // SEE_THROUGH — текст виден сквозь блоки, FULL_BRIGHT — всегда светлый
               mc.font.drawInBatch(
                   name, nameX, 0, 0xFFFFFF,
                   false, poseStack.last().pose(),
                   bufferSource, Font.DisplayMode.SEE_THROUGH,
                   0, LightTexture.FULL_BRIGHT
               );
-
               poseStack.popPose();
           }
-          // Сбрасываем все текстовые буферы разом
           bufferSource.endBatch();
 
           RenderSystem.enableDepthTest();
