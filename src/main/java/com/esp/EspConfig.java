@@ -12,18 +12,31 @@ package com.esp;
       private static final Path   PATH = FMLPaths.CONFIGDIR.get().resolve("playersesp.json");
       private static final Gson   GSON = new GsonBuilder().setPrettyPrinting().create();
 
+      // Игрок ESP
       public static boolean espEnabled    = true;
       public static float   espR = 1f, espG = 0f, espB = 0f;
       public static int     espRange      = 128;
       public static boolean showNick      = true;
       public static boolean showHp        = true;
       public static boolean showArmor     = true;
+
+      // Сканер руд
       public static boolean oreEsp        = false;
       public static int     oreRange      = 16;
+
+      // Боевой
       public static boolean noFall        = false;
       public static boolean killAura      = false;
       public static float   killAuraRange = 4.0f;
-      public static int     guiScale      = 1;
+
+      // Авто-аутентификация
+      public static boolean autoAuth     = false;   // мастер-переключатель
+      public static boolean autoReg      = false;   // /reg <pass> <pass>
+      public static boolean autoLogin    = true;    // /login <pass>
+      public static String  authPassword = "";      // пароль
+
+      // Интерфейс (0=Компакт, 1=Нормальный, 2=Большой)
+      public static int     guiScale     = 1;
 
       public static void load() {
           if (!Files.exists(PATH)) { save(); return; }
@@ -43,10 +56,13 @@ package com.esp;
               noFall        = bv(o,"noFall",         noFall);
               killAura      = bv(o,"killAura",       killAura);
               killAuraRange = fv(o,"killAuraRange",  killAuraRange);
+              autoAuth      = bv(o,"autoAuth",       autoAuth);
+              autoReg       = bv(o,"autoReg",        autoReg);
+              autoLogin     = bv(o,"autoLogin",      autoLogin);
+              authPassword  = sv(o,"authPassword",   authPassword);
               guiScale      = iv(o,"guiScale",       guiScale);
           } catch (Exception e) {
-              LOG.warn("[PlayerESP] Не удалось загрузить конфиг: {}", e.getMessage());
-              save();
+              LOG.warn("[PlayerESP] Ошибка загрузки конфига: {}", e.getMessage()); save();
           }
       }
 
@@ -67,6 +83,10 @@ package com.esp;
               o.addProperty("noFall",        noFall);
               o.addProperty("killAura",      killAura);
               o.addProperty("killAuraRange", killAuraRange);
+              o.addProperty("autoAuth",      autoAuth);
+              o.addProperty("autoReg",       autoReg);
+              o.addProperty("autoLogin",     autoLogin);
+              o.addProperty("authPassword",  authPassword);
               o.addProperty("guiScale",      guiScale);
               try (Writer w = new FileWriter(PATH.toFile())) { GSON.toJson(o, w); }
           } catch (Exception e) {
@@ -77,5 +97,6 @@ package com.esp;
       private static boolean bv(JsonObject o,String k,boolean d){return o.has(k)?o.get(k).getAsBoolean():d;}
       private static float   fv(JsonObject o,String k,float   d){return o.has(k)?o.get(k).getAsFloat()  :d;}
       private static int     iv(JsonObject o,String k,int     d){return o.has(k)?o.get(k).getAsInt()    :d;}
+      private static String  sv(JsonObject o,String k,String  d){return o.has(k)?o.get(k).getAsString() :d;}
   }
   
