@@ -2,17 +2,14 @@ package com.esp;
 
   import com.mojang.blaze3d.platform.InputConstants;
   import net.minecraft.client.KeyMapping;
-  import net.minecraft.client.Minecraft;
   import net.minecraftforge.api.distmarker.Dist;
   import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
-  import net.minecraftforge.event.TickEvent;
   import net.minecraftforge.eventbus.api.SubscribeEvent;
   import net.minecraftforge.fml.common.Mod;
   import org.lwjgl.glfw.GLFW;
 
   @Mod.EventBusSubscriber(modid = PlayersESP.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
   public class EspKeyHandler {
-
       public static final KeyMapping KEY_TOGGLE = new KeyMapping(
           "key.playersesp.toggle", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, "key.categories.playersesp");
       public static final KeyMapping KEY_GUI    = new KeyMapping(
@@ -27,4 +24,3 @@ package com.esp;
           event.register(KEY_ORE);
       }
   }
-  
